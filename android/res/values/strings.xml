@@ -1,0 +1,8 @@
+<resources>
+
+    <string name="app_name">SkyFall</string>
+    <string name="menu_settings">Settings</string>
+    <string name="title_activity_sky_term">SkyTerm</string>
+    <string name="title_activity_picture">Take picture</string>
+
+</resources>
