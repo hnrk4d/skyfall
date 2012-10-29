@@ -3,9 +3,7 @@ package org.ig4d.skyterm;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 
 import android.os.Bundle;
 import android.os.Environment;
@@ -13,7 +11,6 @@ import android.app.Activity;
 import android.content.Intent;
 import android.graphics.ImageFormat;
 import android.hardware.Camera;
-import android.text.format.Time;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -22,7 +19,6 @@ import android.view.SurfaceView;
 
 public class PictureActivity extends Activity {
 	private static String TAG = "CAM: ";
-	List<String> mLogStrings = new ArrayList<String>(10);
 
 	private SurfaceView mPreview = null;
 	private SurfaceHolder mPreviewHolder = null;
@@ -40,7 +36,7 @@ public class PictureActivity extends Activity {
 		mPreviewHolder.addCallback(surfaceCallback);
 		mPreviewHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 
-		mLogStrings.add(TAG + "Picture activity created.");
+		logln(TAG + "Picture activity created.");
 	}
 
 	@Override
@@ -159,7 +155,7 @@ public class PictureActivity extends Activity {
 			try {
 				mCamera.setPreviewDisplay(mPreviewHolder);
 			} catch (Throwable t) {
-				mLogStrings.add(TAG + "Exception in setPreviewDisplay():"
+				logln(TAG + "Exception in setPreviewDisplay():"
 						+ t.getMessage());
 			}
 
@@ -210,17 +206,11 @@ public class PictureActivity extends Activity {
 			mInPreview = true;
 
 			// back to main view
-			Intent intObj = new Intent(PictureActivity.this, SkyTermActivity.class);
-			String str=new String();
-			Time time = new Time();
-			time.setToNow();
-			for(int i=0; i<mLogStrings.size(); ++i) {
-				str+=time.format("%k:%M:%S") + ":" + mLogStrings.get(i)+"\n";
-			}
-			intObj.putExtra("camlog", str);
-			setResult(RESULT_OK, intObj);
+			Intent intend = new Intent(PictureActivity.this, SkyTermActivity.class);
+			intend.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+			startActivity(intend);
 
-			finish();
+			PictureActivity.this.finish();
 		}
 	};
 
@@ -239,10 +229,16 @@ public class PictureActivity extends Activity {
 
 			fos.write(jpeg[0]);
 			fos.close();
-			mLogStrings.add(TAG + "saved picture to " + photo.getName());
+			logln(TAG + "saved picture to " + photo.getName());
 		} catch (java.io.IOException e) {
-			mLogStrings.add(TAG + "Exception in photoCallback:"
+			logln(TAG + "Exception in photoCallback:"
 					+ e.getMessage());
+		}
+	}
+
+	private void logln(String str) {
+		if(StaticData.mSkyTermService != null) {
+			StaticData.mSkyTermService.logln(str);
 		}
 	}
 }
