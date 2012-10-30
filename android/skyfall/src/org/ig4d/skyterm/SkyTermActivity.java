@@ -99,9 +99,7 @@ public class SkyTermActivity extends Activity {
 	
     private OnClickListener stopOnClickListener = new OnClickListener() {
         public void onClick(View v) {
-    		//stop service
-    		stopService(new Intent(SkyTermActivity.this, SkyTermService.class));
-			android.os.Process.killProcess(android.os.Process.myPid());
+        	mHandler.postDelayed(mStopTask, 200);
         }
     };  
 
@@ -114,4 +112,11 @@ public class SkyTermActivity extends Activity {
         public void onClick(View v) {
         }
     };
+
+	private Runnable mStopTask = new Runnable() {
+		public void run() {
+    		stopService(new Intent(SkyTermActivity.this, SkyTermService.class));
+			android.os.Process.killProcess(android.os.Process.myPid());
+		}
+	};
 }
