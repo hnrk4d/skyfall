@@ -18,7 +18,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
 public class PictureActivity extends Activity {
-	private static String TAG = "CAM: ";
+	private static String TAG = "PIC: ";
 
 	private SurfaceView mPreview = null;
 	private SurfaceHolder mPreviewHolder = null;
@@ -43,37 +43,10 @@ public class PictureActivity extends Activity {
 	public void onResume() {
 		super.onResume();
 
-		// if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
-		// Camera.CameraInfo info = new Camera.CameraInfo();
-		//
-		// for (int i = 0; i < Camera.getNumberOfCameras(); i++) {
-		// Camera.getCameraInfo(i, info);
-		//
-		// if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-		// mCamera = Camera.open(i);
-		// }
-		// }
-		// }
-
-		mCamera = getCameraInstance();
-
-		if (mCamera == null) {
-			mCamera = Camera.open();
-		}
+		mCamera = StaticData.getCameraInstance();
 
 		startPreview();
 		mPreview.postDelayed(mCameraTimer, 100);
-	}
-
-	/** A safe way to get an instance of the Camera object. */
-	public static Camera getCameraInstance() {
-		Camera c = null;
-		try {
-			c = Camera.open(); // attempt to get a Camera instance
-		} catch (Exception e) {
-			// Camera is not available (in use or does not exist)
-		}
-		return c; // returns null if camera is unavailable
 	}
 
 	@Override
@@ -229,10 +202,9 @@ public class PictureActivity extends Activity {
 
 			fos.write(jpeg[0]);
 			fos.close();
-			logln(TAG + "saved picture to " + photo.getName());
+			logln(TAG + "saved picture to " + photo.getAbsolutePath());
 		} catch (java.io.IOException e) {
-			logln(TAG + "Exception in photoCallback:"
-					+ e.getMessage());
+			logln(TAG + "Exception in photoCallback:" + e.getMessage());
 		}
 	}
 

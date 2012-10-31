@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.STORAGE" />
 
     <uses-feature android:name="android.hardware.camera" />
     <uses-feature android:name="android.hardware.camera.autofocus" />
@@ -38,6 +40,15 @@
         <activity
             android:name=".PictureActivity"
             android:label="@string/title_activity_picture"
+            android:screenOrientation="landscape"
+            android:launchMode="singleInstance"
+			android:finishOnTaskLaunch="true"
+            >
+        </activity>
+        
+        <activity
+            android:name=".VideoActivity"
+            android:label="@string/title_activity_video"
             android:screenOrientation="landscape"
             android:launchMode="singleInstance"
 			android:finishOnTaskLaunch="true"

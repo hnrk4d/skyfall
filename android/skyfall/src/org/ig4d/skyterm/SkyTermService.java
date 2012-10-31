@@ -34,7 +34,7 @@ public class SkyTermService extends Service {
 	volatile boolean mStopWorker;
 	Time mTime = new Time(Time.getCurrentTimezone());
 	private static final int CLOSE_TIMEOUT = 1000;
-	private static final int PICTURE_DELAY = 10000;
+	private static final int PICTURE_DELAY = 20000;
 
 	private static final String ERR = "ERR: ";
 	private static final String INFO = "INFO: ";
@@ -162,9 +162,6 @@ public class SkyTermService extends Service {
 				Thread.sleep(100);
 			} catch (Throwable e) {
 			}
-			// Intent enableBluetooth = new
-			// Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-			// startActivityForResult(enableBluetooth, 0);
 		}
 
 		Set<BluetoothDevice> pairedDevices = mBluetoothAdapter
@@ -332,7 +329,6 @@ public class SkyTermService extends Service {
 		if (mBluetoothAdapter != null) {
 			mBluetoothAdapter.disable();
 		}
-		// mBluetoothAdapter=null;
 		System.gc();
 		logln(INFO + "Bluetooth closing ...");
 	}
@@ -436,9 +432,15 @@ public class SkyTermService extends Service {
 
 	private Runnable mTakePicture = new Runnable() {
 		public void run() {
-			Intent intend = new Intent(getBaseContext(), PictureActivity.class);
-			intend.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-			startActivity(intend);
+			Intent intent;
+			if(StaticData.mTakePicture) {
+				intent = new Intent(getBaseContext(), PictureActivity.class);
+			}
+			else {
+				intent = new Intent(getBaseContext(), VideoActivity.class);
+			}
+			intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+			startActivity(intent);
 			mHandler.postDelayed(mTakePicture, PICTURE_DELAY);
 		}
 	};

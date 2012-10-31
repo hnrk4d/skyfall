@@ -38,6 +38,7 @@ public class SkyTermActivity extends Activity {
 		((Button)this.findViewById(R.id.stop_button)).setOnClickListener(stopOnClickListener);
 		((Button)this.findViewById(R.id.button_long_lat)).setOnClickListener(longLatOnClickListener);
 		((Button)this.findViewById(R.id.button_unlock_parachute)).setOnClickListener(unlockParachuteOnClickListener);
+		((Button)this.findViewById(R.id.button_video)).setOnClickListener(videoOnClickListener);
 		
 		//start service
 		if(StaticData.mSkyTermService == null) {
@@ -113,7 +114,13 @@ public class SkyTermActivity extends Activity {
         }
     };
 
-	private Runnable mStopTask = new Runnable() {
+    private OnClickListener videoOnClickListener = new OnClickListener() {
+        public void onClick(View v) {
+        	StaticData.mTakePicture = StaticData.mTakePicture?false:true;
+        }
+    };
+
+    private Runnable mStopTask = new Runnable() {
 		public void run() {
     		stopService(new Intent(SkyTermActivity.this, SkyTermService.class));
 			android.os.Process.killProcess(android.os.Process.myPid());
