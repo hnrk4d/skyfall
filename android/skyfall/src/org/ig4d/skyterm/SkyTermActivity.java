@@ -39,7 +39,8 @@ public class SkyTermActivity extends Activity {
 		((Button)this.findViewById(R.id.button_long_lat)).setOnClickListener(longLatOnClickListener);
 		((Button)this.findViewById(R.id.button_unlock_parachute)).setOnClickListener(unlockParachuteOnClickListener);
 		((Button)this.findViewById(R.id.button_video)).setOnClickListener(videoOnClickListener);
-		
+		((Button)this.findViewById(R.id.sms)).setOnClickListener(smsOnClickListener);
+
 		//start service
 		if(StaticData.mSkyTermService == null) {
 			startService(new Intent(SkyTermActivity.this, SkyTermService.class));
@@ -117,6 +118,12 @@ public class SkyTermActivity extends Activity {
     private OnClickListener videoOnClickListener = new OnClickListener() {
         public void onClick(View v) {
         	StaticData.mTakePicture = StaticData.mTakePicture?false:true;
+        }
+    };
+
+    private OnClickListener smsOnClickListener = new OnClickListener() {
+        public void onClick(View v) {
+        	StaticData.mSendSMS = StaticData.mSendSMS?false:true;
         }
     };
 

@@ -5,7 +5,9 @@ import android.hardware.Camera;
 public class StaticData {
 	public static SkyTermService mSkyTermService = null;
 	public static SkyTermActivity mSkyTermActivity = null;
+
 	public static boolean mTakePicture = true;
+	public static boolean mSendSMS = false;
 
 	/** A safe way to get an instance of the Camera object. */
 	public static Camera getCameraInstance() {

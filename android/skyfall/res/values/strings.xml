@@ -8,5 +8,6 @@
     <string name="parachute">Unlock Parachute</string>
     <string name="long_lat">SMS Long/Lat</string>
     <string name="video">Video/Picture</string>
+    <string name="sms">Send SMS</string>
 
 </resources>

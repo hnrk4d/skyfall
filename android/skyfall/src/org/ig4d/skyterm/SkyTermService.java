@@ -14,10 +14,16 @@ import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
+import android.content.Context;
 import android.content.Intent;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
+import android.telephony.gsm.SmsManager;
 import android.text.format.Time;
 
 public class SkyTermService extends Service {
@@ -35,6 +41,8 @@ public class SkyTermService extends Service {
 	Time mTime = new Time(Time.getCurrentTimezone());
 	private static final int CLOSE_TIMEOUT = 1000;
 	private static final int PICTURE_DELAY = 20000;
+	private static final int SMS_DELAY = 15000;
+	private static final String mSMSNumber = "+4915155155707";
 
 	private static final String ERR = "ERR: ";
 	private static final String INFO = "INFO: ";
@@ -50,8 +58,8 @@ public class SkyTermService extends Service {
     private int mNumLogs=0;
 	private String mLog = new String();
 	// Positioning
-	// private LocationProvider mLocationProvider =
-	// LocationManager.GPS_PROVIDER;
+	private LocationManager mLocationManager;
+	private Location mLocation = new Location(LocationManager.GPS_PROVIDER);
 	
 	@Override
 	public IBinder onBind(Intent intent) {
@@ -66,10 +74,24 @@ public class SkyTermService extends Service {
 
 			mHandler.postDelayed(mBTUpdate, 500);
 
-			// mLocationManager.requestLocationUpdates(mLocationProvider, 0, 0,
-			// mLocationListener);
+			mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+		    boolean gpsEnabled = mLocationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+
+		    if (!gpsEnabled) {
+		    	logln(ERR + "GPS : GPS turned off! No location provider available.");
+		    }
+		    else {
+		    	final int UPDATE_CYCLE = 10*1000;
+		    	final int UPDATE_DISTANCE = 10;
+		    	mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, UPDATE_CYCLE, UPDATE_DISTANCE, mLocationListener);
+		    	//mLocationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, UPDATE_CYCLE, UPDATE_DISTANCE, mLocationListener);
+		    	//mLocationManager.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER, UPDATE_CYCLE, UPDATE_DISTANCE, mLocationListener);
+		    	mLocation = mLocationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+		    	logln(INFO + "location providers started [lat, long, alt].");
+		    }
 
 			mHandler.postDelayed(mTakePicture, PICTURE_DELAY);
+			mHandler.postDelayed(mSMSPosition, SMS_DELAY);
 			mCreated = true;
 		}
   		StaticData.mSkyTermService=this;
@@ -335,7 +357,10 @@ public class SkyTermService extends Service {
 
 	public synchronized void logln(String text) {
 		mTime.setToNow();
-		String str = mTime.format("%k:%M:%S") + ":" + text + "\n";
+		String str = mTime.format("%k:%M:%S") + " [" +
+				String.format("%.2f", mLocation.getLatitude()) + ", " +
+				String.format("%.2f", mLocation.getLongitude()) + ", " +
+				String.format("%.2f", mLocation.getAltitude()) + "] : " + text + "\n";
 
 		if(mNumLogs >= NUM_LOG_STRING) {
 			mNumLogs=0;
@@ -445,7 +470,27 @@ public class SkyTermService extends Service {
 		}
 	};
 
-    private synchronized void logTitle(String str) {
+	private Runnable mSMSPosition = new Runnable() {
+		public void run() {
+			if(StaticData.mSendSMS) {
+				sendSMS(mSMSNumber,
+						"SkyFall "
+								+ mTime.format("%k:%M:%S") + " [" +
+								String.format("%.2f", mLocation.getLatitude()) + ", " +
+								String.format("%.2f", mLocation.getLongitude()) + ", " +
+								String.format("%.2f", mLocation.getAltitude()) + "]"
+				);
+			}
+			mHandler.postDelayed(mSMSPosition, SMS_DELAY);
+		}
+	};
+
+	private void sendSMS(String phoneNumber, String message) {
+	       SmsManager sms = SmsManager.getDefault();
+	       sms.sendTextMessage(phoneNumber, null, message, null, null);
+	    }
+	   
+	private synchronized void logTitle(String str) {
     	int len=20;
     	mTitleString += str;
     	if(mTitleString.length() > len) {
@@ -456,4 +501,17 @@ public class SkyTermService extends Service {
     public synchronized String getLogTitle() {
     	return new String(mTitleString);
     }
+
+    LocationListener mLocationListener = new LocationListener() {
+        public void onLocationChanged(Location location) {
+          // Called when a new location is found by the network location provider
+          mLocation = location;
+        }
+
+        public void onStatusChanged(String provider, int status, Bundle extras) {}
+
+        public void onProviderEnabled(String provider) {}
+
+        public void onProviderDisabled(String provider) {}
+      };
 }
