@@ -60,6 +60,7 @@ public class SkyTermService extends Service {
 	// Positioning
 	private LocationManager mLocationManager;
 	private Location mLocation = new Location(LocationManager.GPS_PROVIDER);
+	private double mLongitude=-1.0, mLatitude=-1.0, mAltitude=-1.0;
 	
 	@Override
 	public IBinder onBind(Intent intent) {
@@ -358,9 +359,9 @@ public class SkyTermService extends Service {
 	public synchronized void logln(String text) {
 		mTime.setToNow();
 		String str = mTime.format("%k:%M:%S") + " [" +
-				String.format("%.2f", mLocation.getLatitude()) + ", " +
-				String.format("%.2f", mLocation.getLongitude()) + ", " +
-				String.format("%.2f", mLocation.getAltitude()) + "] : " + text + "\n";
+				String.format("%.2f", mLatitude) + ", " +
+				String.format("%.2f", mLongitude) + ", " +
+				String.format("%.2f", mAltitude) + "] : " + text + "\n";
 
 		if(mNumLogs >= NUM_LOG_STRING) {
 			mNumLogs=0;
@@ -385,34 +386,13 @@ public class SkyTermService extends Service {
 	private PrintWriter mPw;
 
 	private boolean openLogFile() {
-		File root;
-		boolean externalStorageAvailable = false;
-		boolean externalStorageWriteable = false;
-		String state = Environment.getExternalStorageState();
-
-		if (Environment.MEDIA_MOUNTED.equals(state)) {
-			// We can read and write the media
-			externalStorageAvailable = externalStorageWriteable = true;
-		} else if (Environment.MEDIA_MOUNTED_READ_ONLY.equals(state)) {
-			// We can only read the media
-			externalStorageAvailable = true;
-			externalStorageWriteable = false;
-		} else {
-			// Something else is wrong. It may be one of many other states, but
-			// all we need
-			// to know is we can neither read nor write
-			externalStorageAvailable = externalStorageWriteable = false;
+		String path=StaticData.EXT_SD_CARD;
+		if(!(new File(StaticData.EXT_SD_CARD)).exists()) {
+			path=Environment.getExternalStorageDirectory().getAbsolutePath();
 		}
-
-		if (externalStorageAvailable && externalStorageWriteable) {
-			root = android.os.Environment.getExternalStorageDirectory();
-		} else {
-			root = android.os.Environment.getDataDirectory();
-		}
-
-		File dir = new File(root.getAbsolutePath() + "/download");
+		path+=File.separator + "download";
+		File dir = new File(path);
 		dir.mkdirs();
-
 		File ofile = new File(dir, "skyterm_log.txt");
 		if (ofile.exists()) {
 			File nfile = new File(dir, "skyterm_log_old.txt");
@@ -473,18 +453,24 @@ public class SkyTermService extends Service {
 	private Runnable mSMSPosition = new Runnable() {
 		public void run() {
 			if(StaticData.mSendSMS) {
-				sendSMS(mSMSNumber,
-						"SkyFall "
-								+ mTime.format("%k:%M:%S") + " [" +
-								String.format("%.2f", mLocation.getLatitude()) + ", " +
-								String.format("%.2f", mLocation.getLongitude()) + ", " +
-								String.format("%.2f", mLocation.getAltitude()) + "]"
-				);
+				String msg="SkyFall "
+						+ mTime.format("%k:%M:%S") + " [" +
+						String.format("%.2f", mLatitude) + ", " +
+						String.format("%.2f", mLongitude) + ", " +
+						String.format("%.2f", mAltitude) + "]";
+				sendSMS(mSMSNumber, msg);
+				logln(INFO+"send SMS: "+msg);
 			}
 			mHandler.postDelayed(mSMSPosition, SMS_DELAY);
 		}
 	};
 
+    private void getPosition() {
+    	try {mLatitude=mLocation.getLatitude();} catch (Throwable e) {}
+    	try {mLongitude=mLocation.getLongitude();} catch (Throwable e) {}
+    	try {mAltitude=mLocation.getAltitude();} catch (Throwable e) {}
+    }
+	
 	private void sendSMS(String phoneNumber, String message) {
 	       SmsManager sms = SmsManager.getDefault();
 	       sms.sendTextMessage(phoneNumber, null, message, null, null);
@@ -506,6 +492,7 @@ public class SkyTermService extends Service {
         public void onLocationChanged(Location location) {
           // Called when a new location is found by the network location provider
           mLocation = location;
+          getPosition();
         }
 
         public void onStatusChanged(String provider, int status, Bundle extras) {}

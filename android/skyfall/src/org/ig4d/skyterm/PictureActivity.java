@@ -46,7 +46,7 @@ public class PictureActivity extends Activity {
 		mCamera = StaticData.getCameraInstance();
 
 		startPreview();
-		mPreview.postDelayed(mCameraTimer, 100);
+		mPreview.postDelayed(mCameraTimer, 200);
 	}
 
 	@Override
@@ -150,7 +150,7 @@ public class PictureActivity extends Activity {
 	}
 
 	private void startPreview() {
-		if (mCameraConfigured && mCamera != null) {
+		if (mCameraConfigured && mCamera != null && !mInPreview) {
 			mCamera.startPreview();
 			mInPreview = true;
 		}
@@ -188,14 +188,18 @@ public class PictureActivity extends Activity {
 	};
 
 	protected void saveImg(byte[]... jpeg) {
-		String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss")
-				.format(new Date());
-		File photo = new File(Environment.getExternalStorageDirectory()
-				+ File.separator + "Pictures", "SKY_" + timeStamp + ".jpg");
+		String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+		String path=StaticData.EXT_SD_CARD;
+		if(!(new File(StaticData.EXT_SD_CARD)).exists()) {
+			path=Environment.getExternalStorageDirectory().getAbsolutePath();
+		}
+		path+=File.separator + "Pictures";
+		File photo = new File(path, "SKY_" + timeStamp + ".jpg");
 
 		if (photo.exists()) {
 			photo.delete();
 		}
+		(new File(path)).mkdirs();
 
 		try {
 			FileOutputStream fos = new FileOutputStream(photo.getPath());

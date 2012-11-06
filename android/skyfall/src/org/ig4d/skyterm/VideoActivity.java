@@ -131,7 +131,12 @@ public class VideoActivity extends Activity implements Callback, MediaRecorder.O
 	}
 
 	private File getOutputMediaFile(String extension) {
-		File mediaStorageDir = new File(Environment.getExternalStorageDirectory() + File.separator + "Pictures");
+		String path=StaticData.EXT_SD_CARD;
+		if(!(new File(StaticData.EXT_SD_CARD)).exists()) {
+			path=Environment.getExternalStorageDirectory().getAbsolutePath();
+		}
+		path+=File.separator + "Pictures";
+		File mediaStorageDir = new File(path);
 		if (!mediaStorageDir.exists()) {
 			if (!mediaStorageDir.mkdirs()) {
 				logln(TAG +"failed to create directory");

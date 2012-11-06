@@ -9,6 +9,8 @@ public class StaticData {
 	public static boolean mTakePicture = true;
 	public static boolean mSendSMS = false;
 
+	public static String EXT_SD_CARD = "/sdcard/external_sd";
+	
 	/** A safe way to get an instance of the Camera object. */
 	public static Camera getCameraInstance() {
 		Camera c = null;
