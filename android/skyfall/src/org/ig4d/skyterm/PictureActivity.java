@@ -1,3 +1,9 @@
+/*
+
+Copyright (c) 2012, Henrik Battke. All rights reserved.
+Author(s): Henrik Battke
+
+*/
 package org.ig4d.skyterm;
 
 import java.io.File;

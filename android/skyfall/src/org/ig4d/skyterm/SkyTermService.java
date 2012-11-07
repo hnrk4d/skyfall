@@ -1,3 +1,9 @@
+/*
+
+Copyright (c) 2012, Henrik Battke. All rights reserved.
+Author(s): Henrik Battke
+
+*/
 package org.ig4d.skyterm;
 
 import java.io.File;
@@ -40,12 +46,13 @@ public class SkyTermService extends Service {
 	volatile boolean mStopWorker;
 	Time mTime = new Time(Time.getCurrentTimezone());
 	private static final int CLOSE_TIMEOUT = 1000;
-	private static final int PICTURE_DELAY = 20000;
-	private static final int SMS_DELAY = 15000;
+	private static final int PICTURE_DELAY = 10*60*1000;
+	private static final int SMS_DELAY = 15*1000;
 	private static final String mSMSNumber = "+4915155155707";
 
 	private static final String ERR = "ERR: ";
 	private static final String INFO = "INFO: ";
+	private static final String STATUS = "STAT";
 	private static final String DEVICE = "japanboxz";
 	private static enum State {
 		STATE_START_UP, STATE_CONNECT, STATE_COMMUNICATE, STATE_CLOSE
@@ -61,7 +68,16 @@ public class SkyTermService extends Service {
 	private LocationManager mLocationManager;
 	private Location mLocation = new Location(LocationManager.GPS_PROVIDER);
 	private double mLongitude=-1.0, mLatitude=-1.0, mAltitude=-1.0;
-	
+	private int mPressure = -1, mTemperature = -1;
+	private int mAckMode = 0;
+
+	private static int MODE_NONE = 0;
+	private static int MODE_CLIMBING = 1;
+	private static int MODE_FREE_FALL = 2;
+	private static int MODE_PARACHUTE = 3;
+	private static int MAX_MODE = 3;
+	private int mMode = MODE_CLIMBING;
+
 	@Override
 	public IBinder onBind(Intent intent) {
 		return null;
@@ -151,7 +167,8 @@ public class SkyTermService extends Service {
 					mHandler.postDelayed(mBTUpdate, CLOSE_TIMEOUT); // try again after x sec
 				} else {
 					try {
-						sendCmd("ping");
+						String cmd="mo"+mMode;
+						sendCmd(cmd);
 					} catch (IOException ex) {
 						logln(ERR + "COMM " + ex.getMessage());
 						closeBT();
@@ -290,11 +307,33 @@ public class SkyTermService extends Service {
 		mWorkerThread.start();
 	}
 
+	long mLastLogTime = 0;
 	private void process(String cmd) {
 		if (cmd.toLowerCase().startsWith("log:")) {
 			logln(INFO + cmd);
-		} else if (cmd.compareToIgnoreCase("ack") == 0) {
+		} else if (cmd.startsWith("ack")) {
 			logTitle("-");
+			String[] parts = cmd.split(":");
+			if(parts.length >= 2) {
+				try {
+					mAckMode=Integer.parseInt(parts[1]);
+					} catch(Throwable e) {}
+			}
+			if(parts.length >= 3) {
+				try {
+					mTemperature=Integer.parseInt(parts[2]);
+					} catch(Throwable e) {}
+			}
+			if(parts.length >= 4) {
+				try {
+					mPressure=Integer.parseInt(parts[3]);
+					} catch(Throwable e) {}
+			}
+		}
+		long time=System.currentTimeMillis();
+		if(time - mLastLogTime > 30000) {
+			mLastLogTime = time;
+			logln(STATUS);
 		}
 	}
 
@@ -359,9 +398,11 @@ public class SkyTermService extends Service {
 	public synchronized void logln(String text) {
 		mTime.setToNow();
 		String str = mTime.format("%k:%M:%S") + " [" +
-				String.format("%.2f", mLatitude) + ", " +
-				String.format("%.2f", mLongitude) + ", " +
-				String.format("%.2f", mAltitude) + "] : " + text + "\n";
+				String.format("lat=%.2f", mLatitude) + ", " +
+				String.format("lon=%.2f", mLongitude) + ", " +
+				String.format("bar=%d", mPressure) + ", " +
+				String.format("tem=%.1f", ((double)mTemperature)/10.0) + ", " +
+				String.format("alt=%.2f", mAltitude) + "] : " + text + "\n";
 
 		if(mNumLogs >= NUM_LOG_STRING) {
 			mNumLogs=0;
