@@ -6,11 +6,12 @@ Author(s): Henrik Battke
 
 */
 
-#include <stdlib.h>
 #include <SoftwareSerial.h>
 #include <Wire.h>
 #include <BMP085.h>
 #include <ledout.h>
+
+#define LOG_SERIAL(X)
 
 //BMP085 variables
 BMP085 sDps = BMP085();      // Digital Pressure Sensor 
@@ -31,7 +32,7 @@ long sTemperature=0, sPressure=0;
 LedOut sLed(LED);
 
 //General
-#define CMDSIZE 10
+#define CMDSIZE 20
 char sCmd[CMDSIZE+1];
 int sCmdPos=0;
 
@@ -56,10 +57,10 @@ void updateBMP085();
 void readMode(const char *);
 void changeMode(int aPrevMode, int aCurMode);
 void ackMode();
+void restartParsee();
 
 void setup() {
-  //Setup usb serial connection to computer
-  Serial.begin(9600);
+  LOG_SERIAL(Serial.begin(9600));
   Wire.begin();
   delay(1000);
 
@@ -67,6 +68,8 @@ void setup() {
   sDps.init();
   sBluetooth.begin(115200);
 	sLed.setMode(LedOut::EMiddle);
+
+	restartParser();
 }
 
 void loop() {
@@ -86,23 +89,29 @@ void updateBMP085() {
 
 void readBTCmd() {
 	int i;
-  //Read from sBluetooth and write to usb serial
   for(i=0; i<7 && sBluetooth.available(); ++i) {
     char c = (char)sBluetooth.read();
 		if(c=='\n') {
 			sCmd[sCmdPos]=0;
 			if(sCmdPos) processBTCmd(sCmd, sCmdPos);
-			sCmdPos=0; //restart
+			restartParser();
 		}
 		else {
 			sCmd[sCmdPos++]=c;
 			if(sCmdPos==CMDSIZE) {
 				sCmd[sCmdPos]=0;
 				processBTCmd(sCmd, sCmdPos);
-				sCmdPos=0; //restart
+				restartParser();
 			}
 		}
   }
+}
+
+void restartParser() {
+	for(int i=0; i<CMDSIZE; ++i) {
+		sCmd[i]=0;
+	}
+	sCmdPos=0;
 }
 
 bool processBTCmd(char *cmd, int len) {
@@ -116,47 +125,35 @@ bool processBTCmd(char *cmd, int len) {
 		}
 		if(nxor==_xor) {
 			cmd[len-1]=0;
-			if(len >=3 && cmd[0]=='m' && cmd[1]=='o') {
+			len--; //xor replaced by '0'
+			if(len > 2 && cmd[0]=='m' && cmd[1]=='o') {
 				//read and process mode
 				readMode(cmd+2);
 				ackMode();
 			}
-			else {
-				//Serial.println(cmd);
-				//Serial.print("??");
-			}
 			return true;
 		}
-		Serial.print(_xor);
-		Serial.print("<->");
-		Serial.println(nxor);
+		LOG_SERIAL(Serial.print(_xor));
+		LOG_SERIAL(Serial.print("<->"));
+		LOG_SERIAL(Serial.println(nxor));
 
-		/*
-		sBluetooth.print(LOG);
-		sBluetooth.print(_xor);
-		sBluetooth.print(':');
-		sBluetooth.println(nxor);
-		*/
 		return false;
 	}
-
-	/*
-	sBluetooth.print(LOG);
-	sBluetooth.println("empty msg");
-	*/
 
 	return false;
 }
 
 void readMode(const char *aStr) {
-	int mode=atoi(aStr);
-	if(mode >=0 && mode <=MAX_MODE) {
-		//we have a valid mode
-		if(mode != sMode) {
-			//we have a new valid mode
-			sPrevMode = sMode;
-			sMode=mode;
-			changeMode(sPrevMode, sMode);
+	if(aStr[0] >= '0' && aStr[0] <= '9') {
+		int mode=aStr[0]-'0';
+		if(mode >=0 && mode <=MAX_MODE) {
+			//we have a valid mode
+			if(mode != sMode) {
+				//we have a new valid mode
+				sPrevMode = sMode;
+				sMode=mode;
+				changeMode(sPrevMode, sMode);
+			}
 		}
 	}
 }
