@@ -159,16 +159,25 @@ void readMode(const char *aStr) {
 }
 
 void changeMode(int aPrevMode, int aCurMode) {
-	if(aCurMode == MODE_FREE_FALL) {
+	if(aCurMode == MODE_CLIMBING) {
+		sLed.setMode(LedOut::EMiddle);
+	}
+	else if(aCurMode == MODE_FREE_FALL) {
 		// release balloon
-		digitalWrite(AIN1, HIGH);
-		analogWrite(PWMA, 255);
+		digitalWrite(BIN1, HIGH);
+		analogWrite(PWMB, 255);
+		delay(200);
+		digitalWrite(BIN1, LOW);
+		analogWrite(PWMB, 0);
 		sLed.setMode(LedOut::EFast);
 	}
 	else if(aCurMode == MODE_PARACHUTE) {
 		//open parachute
-		digitalWrite(BIN1, HIGH);
-		analogWrite(PWMB, 255);
+		digitalWrite(AIN1, HIGH);
+		analogWrite(PWMA, 255);
+		delay(200);
+		digitalWrite(AIN1, LOW);
+		analogWrite(PWMA, 0);
 		sLed.setMode(LedOut::EFaster);
 	}
 	else if(aCurMode == MODE_NONE) {

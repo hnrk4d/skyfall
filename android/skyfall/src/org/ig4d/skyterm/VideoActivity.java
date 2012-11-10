@@ -34,10 +34,9 @@ public class VideoActivity extends Activity implements Callback, MediaRecorder.O
 	private SurfaceHolder mPreviewHolder = null;
 
 	private MediaRecorder mMediaRecorder;
-	private static int VIDEO_LENGTH = 5000;
+	private static int VIDEO_LENGTH = 2 * 60 *1000;
 	private String mVideoFileName=new String("unnamed");
 	private boolean mIsRecording=false;
-	
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {

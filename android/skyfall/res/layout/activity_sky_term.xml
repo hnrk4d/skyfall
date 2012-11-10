@@ -48,15 +48,25 @@
             />
 
         <Button
-            android:id="@+id/button_long_lat"
+            android:id="@+id/button_climbing"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:padding="@dimen/border"
-            android:text="@string/long_lat"
+            android:text="@string/climb"
             android:background="#00000000"
     		android:textColor="@color/green"
             />
-
+        
+        <Button
+            android:id="@+id/button_release_balloon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="@dimen/border"
+            android:text="@string/balloon"
+            android:background="#00000000"
+    		android:textColor="@color/green"
+            />
+        
         <Button
             android:id="@+id/button_unlock_parachute"
             android:layout_width="wrap_content"
@@ -66,7 +76,7 @@
             android:background="#00000000"
     		android:textColor="@color/green"
             />
-
+        
         <Button
             android:id="@+id/button_video"
             android:layout_width="wrap_content"

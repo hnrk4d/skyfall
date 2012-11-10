@@ -14,7 +14,7 @@ LedOut lets blink a LED with a certain frequence. Frequence is given either by d
  */
 class LedOut {
 public:
-  enum EBlinkMode {EOff=0, ESlow=4000, EMiddle=1500, EFast=500, EFaster=200, EOn=-1};
+  enum EBlinkMode {EOff=0, ESlow=6000, EMiddle=3000, EFast=1000, EFaster=600, EOn=-1};
 	LedOut(int aPin);
 	LedOut(int aPin, int aMode);
   void setMode(int aMode, unsigned long aStartTime=0);

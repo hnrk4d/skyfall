@@ -44,12 +44,16 @@ public class SkyTermService extends Service {
 	int mCounter;
 	boolean mCreated = false;
 	volatile boolean mStopWorker;
+    long mLastWriteTime = System.currentTimeMillis();
+    long mLastReadTime = System.currentTimeMillis();
+    private static int INTERACTION_TIMEOUT = 60*1000;
 	Time mTime = new Time(Time.getCurrentTimezone());
 	private static final int CLOSE_TIMEOUT = 1000;
 	private static final int PICTURE_DELAY = 10*60*1000;
 	private static final int SMS_DELAY = 15*1000;
 	private static final String mSMSNumber = "+4915155155707";
-
+    private static final int STATUS_DELAY = 2* 60 * 1000;
+    
 	private static final String ERR = "ERR: ";
 	private static final String INFO = "INFO: ";
 	private static final String STATUS = "STAT";
@@ -71,11 +75,11 @@ public class SkyTermService extends Service {
 	private int mPressure = -1, mTemperature = -1;
 	private int mAckMode = 0;
 
-	private static int MODE_NONE = 0;
-	private static int MODE_CLIMBING = 1;
-	private static int MODE_FREE_FALL = 2;
-	private static int MODE_PARACHUTE = 3;
-	private static int MAX_MODE = 3;
+	public static int MODE_NONE = 0;
+	public static int MODE_CLIMBING = 1;
+	public static int MODE_FREE_FALL = 2;
+	public static int MODE_PARACHUTE = 3;
+	public static int MAX_MODE = 3;
 	private int mMode = MODE_CLIMBING;
 
 	@Override
@@ -167,7 +171,7 @@ public class SkyTermService extends Service {
 					mHandler.postDelayed(mBTUpdate, CLOSE_TIMEOUT); // try again after x sec
 				} else {
 					try {
-						String cmd="mo"+mMode;
+						String cmd="mo"+getMode();
 						sendCmd(cmd);
 					} catch (IOException ex) {
 						logln(ERR + "COMM " + ex.getMessage());
@@ -189,7 +193,7 @@ public class SkyTermService extends Service {
 		}
 	};
 	
-	boolean findBT() {
+	private boolean findBT() {
 		mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 		if (mBluetoothAdapter == null) {
 			logln(ERR + "No bluetooth adapter available");
@@ -220,7 +224,7 @@ public class SkyTermService extends Service {
 		return false;
 	}
 
-	boolean openBT() throws IOException {
+	private boolean openBT() throws IOException {
 		UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb"); // Standard
 																				// SerialPortService
 																				// ID
@@ -240,7 +244,7 @@ public class SkyTermService extends Service {
 		return false;
 	}
 
-	void beginListenForData() {
+	private void beginListenForData() {
 		final Handler handler = new Handler();
 		final byte delimiter = '\n';
 
@@ -277,6 +281,7 @@ public class SkyTermService extends Service {
 								mReadBuffer[mReadBufferPosition++] = b;
 							}
 						}
+						mLastReadTime=System.currentTimeMillis();
 					}
 				} catch (IOException ex) {
 					logln(ERR + "WORK " + ex.getMessage());
@@ -331,13 +336,13 @@ public class SkyTermService extends Service {
 			}
 		}
 		long time=System.currentTimeMillis();
-		if(time - mLastLogTime > 30000) {
+		if(time - mLastLogTime > STATUS_DELAY) {
 			mLastLogTime = time;
 			logln(STATUS);
 		}
 	}
 
-	synchronized void sendCmd(String msg) throws IOException {
+	private synchronized void sendCmd(String msg) throws IOException {
 		byte[] bytes = (msg).getBytes("US-ASCII");
 		byte xor = 0;
 		for (int i = 0; i < bytes.length; ++i) {
@@ -355,9 +360,18 @@ public class SkyTermService extends Service {
 		}
 		mOutputStream.write('\n');
 		logTitle("+");
+		mLastWriteTime=System.currentTimeMillis();
+		if(Math.abs(mLastWriteTime - mLastReadTime) > INTERACTION_TIMEOUT) {
+			connectionProbablyLost();
+			mLastReadTime = mLastWriteTime;
+		}
 	}
 
-	void closeBT() {
+	private void connectionProbablyLost() {
+		logln(ERR + "Connection to Arduino probably lost");
+	}
+	
+	private void closeBT() {
 		mStopWorker = true;
 		try {
 			Thread.sleep(100);
@@ -476,8 +490,18 @@ public class SkyTermService extends Service {
 		}
 	}
 
+    private int mPictureCounter = 0;
 	private Runnable mTakePicture = new Runnable() {
 		public void run() {
+			//temporary
+			mPictureCounter = (mPictureCounter+1)%7;
+			if(mPictureCounter == 0) {
+				StaticData.mTakePicture=false;
+			}
+			else {
+				StaticData.mTakePicture=true;
+			}
+
 			Intent intent;
 			if(StaticData.mTakePicture) {
 				intent = new Intent(getBaseContext(), PictureActivity.class);
@@ -542,4 +566,16 @@ public class SkyTermService extends Service {
 
         public void onProviderDisabled(String provider) {}
       };
+      
+      public synchronized boolean setMode(int mode) {
+    	  if(0 <= mode && mode <= MAX_MODE) {
+	    	  mMode=mode;
+	    	  return true;
+    	  }
+          return false;
+      }
+
+      public synchronized int getMode() {
+          return mMode;
+      }
 }

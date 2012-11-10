@@ -23,6 +23,8 @@ import android.widget.ScrollView;
 public class SkyTermActivity extends Activity {
 
 	private String mTitle;
+	private String mVideo;
+	private String mPicture;
 	private EditText mTextbox;
 	private ScrollView mScroller;
     private Handler mHandler = new Handler();
@@ -37,12 +39,15 @@ public class SkyTermActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_sky_term);
 		mTitle = getResources().getString(R.string.title_activity_sky_term);
+		mVideo = getResources().getString(R.string.vid);
+		mPicture = getResources().getString(R.string.pic);
 		startService(new Intent(SkyTermActivity.this, SkyTermService.class));
 		mTextbox = (EditText) findViewById(R.id.editText);
 		mScroller = (ScrollView) findViewById(R.id.scroller);
 
 		((Button)this.findViewById(R.id.stop_button)).setOnClickListener(stopOnClickListener);
-		((Button)this.findViewById(R.id.button_long_lat)).setOnClickListener(longLatOnClickListener);
+		((Button)this.findViewById(R.id.button_climbing)).setOnClickListener(climbingOnClickListener);
+		((Button)this.findViewById(R.id.button_release_balloon)).setOnClickListener(balloonOnClickListener);
 		((Button)this.findViewById(R.id.button_unlock_parachute)).setOnClickListener(unlockParachuteOnClickListener);
 		((Button)this.findViewById(R.id.button_video)).setOnClickListener(videoOnClickListener);
 		((Button)this.findViewById(R.id.sms)).setOnClickListener(smsOnClickListener);
@@ -92,16 +97,21 @@ public class SkyTermActivity extends Activity {
 	};
 
 	public void update() {
+		String medium=mPicture;
+		if(!StaticData.mTakePicture) {
+			medium=mVideo;
+		}
+		medium=" - " + medium;
 		if(StaticData.mSkyTermService != null) {
 			String str=StaticData.mSkyTermService.getLogTitle();
 			if(str.length() > 0) {
-				setTitle(mTitle+" ["+str+"]");
+				setTitle(mTitle + medium + " ["+str+"]");
 			}
 			mTextbox.setText(StaticData.mSkyTermService.getLog());
 			mScroller.smoothScrollTo(0, mTextbox.getBottom()); 
 			}
 		else {
-			setTitle(mTitle);
+			setTitle(mTitle + medium);
 		}
 	}
 	
@@ -111,13 +121,27 @@ public class SkyTermActivity extends Activity {
         }
     };  
 
-    private OnClickListener longLatOnClickListener = new OnClickListener() {
+    private OnClickListener climbingOnClickListener = new OnClickListener() {
         public void onClick(View v) {
+        	if(StaticData.mSkyTermService != null) {
+        		StaticData.mSkyTermService.setMode(SkyTermService.MODE_CLIMBING);
+        	}
+        }
+    };
+
+    private OnClickListener balloonOnClickListener = new OnClickListener() {
+        public void onClick(View v) {
+        	if(StaticData.mSkyTermService != null) {
+        		StaticData.mSkyTermService.setMode(SkyTermService.MODE_FREE_FALL);
+        	}
         }
     };
 
     private OnClickListener unlockParachuteOnClickListener = new OnClickListener() {
         public void onClick(View v) {
+        	if(StaticData.mSkyTermService != null) {
+        		StaticData.mSkyTermService.setMode(SkyTermService.MODE_PARACHUTE);
+        	}
         }
     };
 
