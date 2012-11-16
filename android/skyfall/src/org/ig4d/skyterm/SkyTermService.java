@@ -29,6 +29,8 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.PowerManager;
+import android.os.PowerManager.WakeLock;
 import android.telephony.gsm.SmsManager;
 import android.text.format.Time;
 
@@ -46,13 +48,16 @@ public class SkyTermService extends Service {
 	volatile boolean mStopWorker;
     long mLastWriteTime = System.currentTimeMillis();
     long mLastReadTime = System.currentTimeMillis();
+    long mStartTime = System.currentTimeMillis();
     private static int INTERACTION_TIMEOUT = 60*1000;
 	Time mTime = new Time(Time.getCurrentTimezone());
 	private static final int CLOSE_TIMEOUT = 1000;
-	private static final int PICTURE_DELAY = 10*60*1000;
-	private static final int SMS_DELAY = 15*1000;
+	//TODO!
+	private static final int PICTURE_CLIMBING_DELAY = 10*60*1000;
+	private static final int SMS_CLIMBING_DELAY = 5*60*1000;
 	private static final String mSMSNumber = "+4915155155707";
-    private static final int STATUS_DELAY = 2* 60 * 1000;
+    private static final int STATUS_DELAY = 2*60*1000;
+    private static final int UPDATE_DELAY = 500;
     
 	private static final String ERR = "ERR: ";
 	private static final String INFO = "INFO: ";
@@ -68,20 +73,16 @@ public class SkyTermService extends Service {
     private int NUM_LOG_STRING = 100;
     private int mNumLogs=0;
 	private String mLog = new String();
+	private boolean mLogChanged=true;
 	// Positioning
 	private LocationManager mLocationManager;
 	private Location mLocation = new Location(LocationManager.GPS_PROVIDER);
 	private double mLongitude=-1.0, mLatitude=-1.0, mAltitude=-1.0;
 	private int mPressure = -1, mTemperature = -1;
-	private int mAckMode = 0;
-
-	public static int MODE_NONE = 0;
-	public static int MODE_CLIMBING = 1;
-	public static int MODE_FREE_FALL = 2;
-	public static int MODE_PARACHUTE = 3;
-	public static int MAX_MODE = 3;
-	private int mMode = MODE_CLIMBING;
-
+	private int mStartPressure = -1;
+	private boolean mFirstPressure=true;
+	private WakeLock mWakeLock;
+	
 	@Override
 	public IBinder onBind(Intent intent) {
 		return null;
@@ -102,18 +103,25 @@ public class SkyTermService extends Service {
 		    	logln(ERR + "GPS : GPS turned off! No location provider available.");
 		    }
 		    else {
-		    	final int UPDATE_CYCLE = 10*1000;
-		    	final int UPDATE_DISTANCE = 10;
-		    	mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, UPDATE_CYCLE, UPDATE_DISTANCE, mLocationListener);
+		    	mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500, 20, mLocationListener);
 		    	//mLocationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, UPDATE_CYCLE, UPDATE_DISTANCE, mLocationListener);
 		    	//mLocationManager.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER, UPDATE_CYCLE, UPDATE_DISTANCE, mLocationListener);
 		    	mLocation = mLocationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-		    	logln(INFO + "location providers started [lat, long, alt].");
+		    	logln(INFO + "location provider started.");
 		    }
 
-			mHandler.postDelayed(mTakePicture, PICTURE_DELAY);
-			mHandler.postDelayed(mSMSPosition, SMS_DELAY);
+			mHandler.postDelayed(mTakePicture, PICTURE_CLIMBING_DELAY);
+			mHandler.postDelayed(mSMSPosition, SMS_CLIMBING_DELAY);
+			mHandler.postDelayed(mUpdate, UPDATE_DELAY);
+
+			mWakeLock = ((PowerManager)getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK | PowerManager.ON_AFTER_RELEASE, "SKYFALL");
+	        mWakeLock.acquire();
+
 			mCreated = true;
+			
+			if(StaticData.EMULATION) {
+				mEmulation.update(mStartTime);
+			}
 		}
   		StaticData.mSkyTermService=this;
     }
@@ -122,6 +130,7 @@ public class SkyTermService extends Service {
     public void onDestroy() {
     	StaticData.mSkyTermService=null;
     	closeLogFile();
+		mWakeLock.release();
     	super.onDestroy();
     }
 
@@ -322,17 +331,24 @@ public class SkyTermService extends Service {
 			if(parts.length >= 2) {
 				try {
 					mAckMode=Integer.parseInt(parts[1]);
-					} catch(Throwable e) {}
+					if(mAckMode != mMode) {
+						logln(ERR + "response mode different from host mode ("+mAckMode+", "+mMode+")");
+					}
+				} catch(Throwable e) {}
 			}
 			if(parts.length >= 3) {
 				try {
-					mTemperature=Integer.parseInt(parts[2]);
-					} catch(Throwable e) {}
+					if(!StaticData.EMULATION) {
+						mTemperature=Integer.parseInt(parts[2]);
+					}
+				} catch(Throwable e) {}
 			}
 			if(parts.length >= 4) {
 				try {
-					mPressure=Integer.parseInt(parts[3]);
-					} catch(Throwable e) {}
+					if(!StaticData.EMULATION) {
+						mPressure=Integer.parseInt(parts[3]);
+					}
+				} catch(Throwable e) {}
 			}
 		}
 		long time=System.currentTimeMillis();
@@ -426,11 +442,21 @@ public class SkyTermService extends Service {
 		mLog+=str;
 		mNumLogs++;
 		writeToFile(str);
+		mLogChanged=true;
 	}
 
 	public synchronized void log(String text) {
 		mLog+=text;
 		writeToFile(text);
+		mLogChanged=true;
+	}
+
+	public synchronized boolean hasLogChanged() {
+		return mLogChanged;
+	}
+	
+	public synchronized void clearLogChanged() {
+		mLogChanged = false;
 	}
 
 	public synchronized String getLog() {
@@ -493,7 +519,7 @@ public class SkyTermService extends Service {
     private int mPictureCounter = 0;
 	private Runnable mTakePicture = new Runnable() {
 		public void run() {
-			//temporary
+			//TODO!
 			mPictureCounter = (mPictureCounter+1)%7;
 			if(mPictureCounter == 0) {
 				StaticData.mTakePicture=false;
@@ -511,7 +537,12 @@ public class SkyTermService extends Service {
 			}
 			intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 			startActivity(intent);
-			mHandler.postDelayed(mTakePicture, PICTURE_DELAY);
+			if(getMode() == MODE_CLIMBING) {
+				mHandler.postDelayed(mTakePicture, PICTURE_CLIMBING_DELAY);
+			}
+			else {
+				mHandler.postDelayed(mTakePicture, 60 * 60 * 1000);
+			}
 		}
 	};
 
@@ -526,14 +557,16 @@ public class SkyTermService extends Service {
 				sendSMS(mSMSNumber, msg);
 				logln(INFO+"send SMS: "+msg);
 			}
-			mHandler.postDelayed(mSMSPosition, SMS_DELAY);
+			mHandler.postDelayed(mSMSPosition, SMS_CLIMBING_DELAY);
 		}
 	};
 
     private void getPosition() {
-    	try {mLatitude=mLocation.getLatitude();} catch (Throwable e) {}
-    	try {mLongitude=mLocation.getLongitude();} catch (Throwable e) {}
-    	try {mAltitude=mLocation.getAltitude();} catch (Throwable e) {}
+    	if(!StaticData.EMULATION) {
+    		try {mLatitude=mLocation.getLatitude();} catch (Throwable e) {}
+    		try {mLongitude=mLocation.getLongitude();} catch (Throwable e) {}
+    		try {mAltitude=mLocation.getAltitude();} catch (Throwable e) {}
+    	}
     }
 	
 	private void sendSMS(String phoneNumber, String message) {
@@ -565,17 +598,142 @@ public class SkyTermService extends Service {
         public void onProviderEnabled(String provider) {}
 
         public void onProviderDisabled(String provider) {}
-      };
-      
-      public synchronized boolean setMode(int mode) {
-    	  if(0 <= mode && mode <= MAX_MODE) {
-	    	  mMode=mode;
-	    	  return true;
-    	  }
-          return false;
-      }
+    };
 
-      public synchronized int getMode() {
-          return mMode;
-      }
+    /////////////////////////////// STATE MACHINE ///////////////////////////////
+    
+	private int mAckMode = 0;
+	public final static int MODE_NONE = 0;
+	public final static int MODE_CLIMBING = 1;
+	public final static int MODE_FREE_FALL = 2;
+	public final static int MODE_PARACHUTE = 3;
+	public final static int MAX_MODE = 3;
+	private int mMode = MODE_CLIMBING;
+
+	private double mSummitAltitude = 0.0; //ever achieved summit height
+	private boolean mSecurityMode = true; //security mode is set for a height very close to the ground, here we don't open the parachute under no circumstances
+	
+	public synchronized boolean setMode(int mode) {
+		if (0 <= mode && mode <= MAX_MODE) {
+			logln(INFO + "old mode:" + mMode + " , new mode:" + mode);
+			mMode = mode;
+			return true;
+		}
+		return false;
+	}
+
+	public synchronized int getMode() {
+		return mMode;
+	}
+
+	private Runnable mUpdate = new Runnable() {
+		public void run() {
+			long time=System.currentTimeMillis();
+
+			if(StaticData.EMULATION) {
+				mEmulation.update(time);
+			}
+
+			if(mFirstPressure && mPressure >=0) {
+				mFirstPressure=false;
+				mStartPressure = mPressure;
+			}
+
+			switch(mMode) {
+			case MODE_CLIMBING :
+			{
+				boolean mode_changed=false;
+				int new_mode=MODE_CLIMBING;
+				//update summit altitude
+				if(mAltitude > mSummitAltitude) {
+					mSummitAltitude = mAltitude;
+				}
+				//we have to reach a minimal height -> unlock security setting for parachute
+				if(mSecurityMode) {
+					if(mStartPressure - mPressure > 20000) {
+						mSecurityMode=false;
+						logln(INFO+"security mode turned off");
+					}
+				}
+				if(!mSecurityMode) {
+					//do we fall? balloon exploded?
+					if(mSummitAltitude - mAltitude > 250) {
+						//we lost substantial height
+						mode_changed=true;
+						new_mode=MODE_FREE_FALL;
+						logln(INFO+"altitude << summit altitude -> FREE FALL");
+					}
+					//TODO!
+					if(time - mStartTime > 14 * 60 * 60 * 1000) {
+						//balloon is traveling for a long, long time, let's release the balloon
+						mode_changed=true;
+						new_mode=MODE_FREE_FALL;
+						logln(INFO+"travel time exceeded -> FREE FALL");
+					}
+					if(mStartPressure - mPressure < 15000) {
+						//we are approaching the ground -> open parachute
+						mode_changed=true;
+						new_mode=MODE_PARACHUTE;
+						logln(INFO+"air pressure close to ground pressure -> PARACHUTE (1)");
+					}
+					if(mode_changed) {
+						setMode(new_mode);
+						//remove handlers ...
+						mHandler.removeCallbacks(mSMSPosition);
+						mHandler.removeCallbacks(mTakePicture);
+						//.. and reschedule at a faster cycle
+						StaticData.mTakePicture = false; // video from now
+						if(StaticData.mTakingPicture) {
+							mHandler.postDelayed(mTakePicture, 2000); //should be longer than taking a photo
+						}
+						else {
+							mHandler.postDelayed(mTakePicture, 250); //start almost immediately
+						}
+						mHandler.postDelayed(mSMSPosition, 15 *1000); //much faster SMS updates
+					}
+				}
+				} break;
+			case MODE_FREE_FALL :
+			{
+				boolean mode_changed=false;
+				int new_mode=MODE_FREE_FALL;
+				if(mStartPressure - mPressure < 10000) {
+					//we are approaching the ground -> open parachute
+					new_mode=MODE_PARACHUTE;
+					logln(INFO+"air pressure close to ground pressure -> PARACHUTE (2)");
+				}
+				if(mode_changed) {
+					StaticData.mTakePicture = true; // back to picture mode for the next shot
+					setMode(new_mode);
+				}
+			} break;
+			case MODE_PARACHUTE :
+			{
+				//nothing specific to do
+			} break;
+			}
+			mHandler.postDelayed(mUpdate, UPDATE_DELAY);
+		}
+	};
+	
+	class Emulator {
+		private final double CLIMB_TIME = 12*60*60*1000;
+		private final double LONGITUDE = 116.39043, LATITUDE = 39.922902;
+		private final double START_ALTITUDE = 52.0, SUMMIT_ALTITUDE = 39000.0;
+		private final double START_PRESSURE = 101000, SUMMIT_PRESSURE = 0;
+		private final double START_TEMPERATURE = 225, SUMMIT_TEMPERATURE = -60;
+		public void update(long time) {
+			double dt=time - mStartTime;
+			if(dt<0.0) dt=0;
+			double frac=dt/CLIMB_TIME;
+			if(frac > 1.0) frac=1.0;
+			mLongitude=LONGITUDE;
+			mLatitude=LATITUDE;
+			mAltitude = START_ALTITUDE + frac*(SUMMIT_ALTITUDE - START_ALTITUDE);
+			mPressure = (int)(START_PRESSURE + frac*(SUMMIT_PRESSURE - START_PRESSURE));
+			mTemperature = (int)(START_TEMPERATURE + frac*(SUMMIT_TEMPERATURE - START_TEMPERATURE));			
+		}
+	};
+	
+	Emulator mEmulation = new Emulator();
 }

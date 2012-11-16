@@ -8,10 +8,7 @@ package org.ig4d.skyterm;
 
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.PowerManager;
-import android.os.PowerManager.WakeLock;
 import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
 import android.view.Menu;
 import android.view.View;
@@ -28,15 +25,12 @@ public class SkyTermActivity extends Activity {
 	private EditText mTextbox;
 	private ScrollView mScroller;
     private Handler mHandler = new Handler();
-	private WakeLock mWakeLock;
-    private static int UPDATE_DELAY = 200;
-
-	//http://saigeethamn.blogspot.de/2009/09/android-developer-tutorial-for_04.html
-    //http://developer.android.com/reference/android/app/Service.html
+    private static int UPDATE_DELAY = 500;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+
 		setContentView(R.layout.activity_sky_term);
 		mTitle = getResources().getString(R.string.title_activity_sky_term);
 		mVideo = getResources().getString(R.string.vid);
@@ -45,29 +39,31 @@ public class SkyTermActivity extends Activity {
 		mTextbox = (EditText) findViewById(R.id.editText);
 		mScroller = (ScrollView) findViewById(R.id.scroller);
 
+		View title = getWindow().findViewById(android.R.id.title);
+		View titleBar = (View) title.getParent();
+		int for_title = getResources().getColor(R.color.foretitle);
+		int back_title = getResources().getColor(R.color.backtitle);
+		titleBar.setBackgroundColor(back_title);
+		getWindow().setTitleColor(for_title);
+		
 		((Button)this.findViewById(R.id.stop_button)).setOnClickListener(stopOnClickListener);
 		((Button)this.findViewById(R.id.button_climbing)).setOnClickListener(climbingOnClickListener);
 		((Button)this.findViewById(R.id.button_release_balloon)).setOnClickListener(balloonOnClickListener);
 		((Button)this.findViewById(R.id.button_unlock_parachute)).setOnClickListener(unlockParachuteOnClickListener);
 		((Button)this.findViewById(R.id.button_video)).setOnClickListener(videoOnClickListener);
 		((Button)this.findViewById(R.id.sms)).setOnClickListener(smsOnClickListener);
-
-		//start service
+	    
+	    //start service
 		if(StaticData.mSkyTermService == null) {
 			startService(new Intent(SkyTermActivity.this, SkyTermService.class));
-
-			final PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-	        mWakeLock = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ON_AFTER_RELEASE, "");
-	        mWakeLock.acquire();
 		}
 	
   		StaticData.mSkyTermActivity=this;
-  	}
+	}
 
 	@Override
 	public void onDestroy() {
   		StaticData.mSkyTermActivity=null;
-  		mWakeLock.release();
 		super.onDestroy();
 	}
 			
@@ -107,11 +103,14 @@ public class SkyTermActivity extends Activity {
 			if(str.length() > 0) {
 				setTitle(mTitle + medium + " ["+str+"]");
 			}
-			mTextbox.setText(StaticData.mSkyTermService.getLog());
-			mScroller.smoothScrollTo(0, mTextbox.getBottom()); 
+			else {
+				setTitle(mTitle + medium);
 			}
-		else {
-			setTitle(mTitle + medium);
+			if(StaticData.mSkyTermService.hasLogChanged()) {
+				mTextbox.setText(StaticData.mSkyTermService.getLog());
+				mScroller.smoothScrollTo(0, mTextbox.getBottom()); 
+				StaticData.mSkyTermService.clearLogChanged();
+			}
 		}
 	}
 	
@@ -148,6 +147,7 @@ public class SkyTermActivity extends Activity {
     private OnClickListener videoOnClickListener = new OnClickListener() {
         public void onClick(View v) {
         	StaticData.mTakePicture = StaticData.mTakePicture?false:true;
+        	update();
         }
     };
 

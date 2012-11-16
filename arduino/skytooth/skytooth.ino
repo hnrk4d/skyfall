@@ -15,7 +15,9 @@ Author(s): Henrik Battke
 
 //BMP085 variables
 BMP085 sDps = BMP085();      // Digital Pressure Sensor 
-long sTemperature=0, sPressure=0;
+long sTemperature=0, sPressure=0, sStartPressure=0;
+bool sFirstPressure=true;
+bool sSecurityMode=true;
 
 //Motor control - TB6612FNG
 #define AIN1 4
@@ -58,6 +60,8 @@ void readMode(const char *);
 void changeMode(int aPrevMode, int aCurMode);
 void ackMode();
 void restartParsee();
+void release_balloon();
+void open_parachute();
 
 void setup() {
   LOG_SERIAL(Serial.begin(9600));
@@ -85,6 +89,31 @@ void loop() {
 void updateBMP085() {
   sDps.getPressure(&sPressure);
   sDps.getTemperature(&sTemperature);
+
+	if(sFirstPressure) {
+		sFirstPressure=false;
+		sStartPressure = sPressure;
+	}
+
+	//we have to reach a minimal height -> unlock security setting for parachute
+	if(sSecurityMode) {
+		if(sStartPressure - sPressure > 20000) {
+			sSecurityMode=false;
+		}
+	}
+	if(!sSecurityMode) {
+		//in exceptional situations, possibly without communication to the host computer we open the parachute autonomously
+		if(sStartPressure - sPressure < 10000) {
+			//we are approaching the ground
+			//open parachute
+			open_parachute();
+			sLed.setMode(LedOut::EFaster);
+
+			sBluetooth.print(LOG);
+			sBluetooth.print('m');
+			sBluetooth.println(MODE_PARACHUTE);
+		}
+	}
 }
 
 void readBTCmd() {
@@ -164,20 +193,12 @@ void changeMode(int aPrevMode, int aCurMode) {
 	}
 	else if(aCurMode == MODE_FREE_FALL) {
 		// release balloon
-		digitalWrite(BIN1, HIGH);
-		analogWrite(PWMB, 255);
-		delay(200);
-		digitalWrite(BIN1, LOW);
-		analogWrite(PWMB, 0);
+		release_balloon();
 		sLed.setMode(LedOut::EFast);
 	}
 	else if(aCurMode == MODE_PARACHUTE) {
 		//open parachute
-		digitalWrite(AIN1, HIGH);
-		analogWrite(PWMA, 255);
-		delay(200);
-		digitalWrite(AIN1, LOW);
-		analogWrite(PWMA, 0);
+		open_parachute();
 		sLed.setMode(LedOut::EFaster);
 	}
 	else if(aCurMode == MODE_NONE) {
@@ -187,6 +208,22 @@ void changeMode(int aPrevMode, int aCurMode) {
 	sBluetooth.print(LOG);
 	sBluetooth.print('m');
 	sBluetooth.println(aCurMode);
+}
+
+void release_balloon() {
+	digitalWrite(BIN1, HIGH);
+	analogWrite(PWMB, 255);
+	delay(200);
+	digitalWrite(BIN1, LOW);
+	analogWrite(PWMB, 0);
+}
+
+void open_parachute() {
+	digitalWrite(AIN1, HIGH);
+	analogWrite(PWMA, 255);
+	delay(200);
+	digitalWrite(AIN1, LOW);
+	analogWrite(PWMA, 0);
 }
 
 void ackMode() {

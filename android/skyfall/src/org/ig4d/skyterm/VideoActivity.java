@@ -10,7 +10,6 @@ import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-
 import android.media.CamcorderProfile;
 import android.media.MediaRecorder;
 import android.os.Bundle;
@@ -34,6 +33,7 @@ public class VideoActivity extends Activity implements Callback, MediaRecorder.O
 	private SurfaceHolder mPreviewHolder = null;
 
 	private MediaRecorder mMediaRecorder;
+	//TODO!
 	private static int VIDEO_LENGTH = 2 * 60 *1000;
 	private String mVideoFileName=new String("unnamed");
 	private boolean mIsRecording=false;
@@ -41,7 +41,15 @@ public class VideoActivity extends Activity implements Callback, MediaRecorder.O
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+	    Window mywindow = getWindow();
+	    WindowManager.LayoutParams lp = mywindow.getAttributes();
+	    lp.flags |= WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON;
+	    lp.flags |= WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON;
+	    lp.flags |= WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED;
+	    mywindow.setAttributes(lp);
+		
+		requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         
@@ -51,7 +59,6 @@ public class VideoActivity extends Activity implements Callback, MediaRecorder.O
 		mPreview = (SurfaceView) findViewById(R.id.video_preview);
 		mPreviewHolder = mPreview.getHolder();
 		mPreviewHolder.addCallback(this);
-		mPreviewHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 
 		logln(TAG + "Video activity created.");
 	}

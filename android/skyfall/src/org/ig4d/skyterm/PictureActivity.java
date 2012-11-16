@@ -10,7 +10,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-
 import android.os.Bundle;
 import android.os.Environment;
 import android.app.Activity;
@@ -22,8 +21,11 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.Window;
+import android.view.WindowManager;
 
-public class PictureActivity extends Activity {
+public class PictureActivity extends Activity implements Camera.AutoFocusCallback {
+	
 	private static String TAG = "PIC: ";
 
 	private SurfaceView mPreview = null;
@@ -35,35 +37,38 @@ public class PictureActivity extends Activity {
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		setContentView(R.layout.activity_picture);
 
-		mPreview = (SurfaceView) findViewById(R.id.camera_preview);
+	    Window mywindow = getWindow();
+	    WindowManager.LayoutParams lp = mywindow.getAttributes();
+	    lp.flags |= WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON;
+	    lp.flags |= WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED;
+	    mywindow.setAttributes(lp);
+
+	    setContentView(R.layout.activity_picture);
+
+	    mPreview = (SurfaceView) findViewById(R.id.camera_preview);
 		mPreviewHolder = mPreview.getHolder();
 		mPreviewHolder.addCallback(surfaceCallback);
-		mPreviewHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-
-		logln(TAG + "Picture activity created.");
+	    	
+	    logln(TAG + "Picture activity created.");
+		StaticData.mTakingPicture=true; //picture activity is running
 	}
 
 	@Override
 	public void onResume() {
 		super.onResume();
-
-		mCamera = StaticData.getCameraInstance();
-
-		startPreview();
-		mPreview.postDelayed(mCameraTimer, 200);
 	}
 
 	@Override
 	public void onPause() {
-		if (mInPreview) {
-			mCamera.stopPreview();
+		if(mCamera!=null) {
+			if (mInPreview) {
+				mCamera.stopPreview();
+				mInPreview = false;
+			}
+			mCamera.release();
+			mCamera = null;
 		}
-
-		mCamera.release();
-		mCamera = null;
-		mInPreview = false;
 
 		super.onPause();
 	}
@@ -78,7 +83,6 @@ public class PictureActivity extends Activity {
 		public void run() {
 			if (mInPreview) {
 				mCamera.takePicture(null, null, photoCallback);
-				mInPreview = false;
 			}
 		}
 	};
@@ -128,7 +132,7 @@ public class PictureActivity extends Activity {
 
 		return (result);
 	}
-
+	
 	private void initPreview(int width, int height) {
 		if (mCamera != null && mPreviewHolder.getSurface() != null) {
 			try {
@@ -143,6 +147,9 @@ public class PictureActivity extends Activity {
 				Camera.Size size = getBestPreviewSize(width, height, parameters);
 				Camera.Size pictureSize = getBiggestPictureSize(parameters);
 
+				parameters.setFocusMode(StaticData.FOCUS);
+				logln(TAG + "focus mode set to " + StaticData.FOCUS);
+				
 				if (size != null && pictureSize != null) {
 					parameters.setPreviewSize(size.width, size.height);
 					parameters.setPictureSize(pictureSize.width,
@@ -158,10 +165,17 @@ public class PictureActivity extends Activity {
 	private void startPreview() {
 		if (mCameraConfigured && mCamera != null && !mInPreview) {
 			mCamera.startPreview();
+			if(StaticData.FOCUS == Camera.Parameters.FOCUS_MODE_MACRO) {
+				mCamera.autoFocus(this);
+			}
 			mInPreview = true;
 		}
 	}
 
+	public void onAutoFocus(boolean success, Camera camera) {
+		//empty, assuming that the timer delay is enough, also because MACRO is just for test purposes
+	}   
+	
 	SurfaceHolder.Callback surfaceCallback = new SurfaceHolder.Callback() {
 		public void surfaceCreated(SurfaceHolder holder) {
 			// no-op -- wait until surfaceChanged()
@@ -169,8 +183,10 @@ public class PictureActivity extends Activity {
 
 		public void surfaceChanged(SurfaceHolder holder, int format, int width,
 				int height) {
+			mCamera = StaticData.getCameraInstance();
 			initPreview(width, height);
 			startPreview();
+			mPreview.postDelayed(mCameraTimer, 500);
 		}
 
 		public void surfaceDestroyed(SurfaceHolder holder) {
@@ -181,14 +197,13 @@ public class PictureActivity extends Activity {
 	Camera.PictureCallback photoCallback = new Camera.PictureCallback() {
 		public void onPictureTaken(byte[] data, Camera camera) {
 			saveImg(data);
-			camera.startPreview();
-			mInPreview = true;
 
 			// back to main view
 			Intent intend = new Intent(PictureActivity.this, SkyTermActivity.class);
 			intend.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 			startActivity(intend);
 
+			StaticData.mTakingPicture=false; //done with taking a picture
 			PictureActivity.this.finish();
 		}
 	};
