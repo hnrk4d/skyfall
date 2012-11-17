@@ -13,6 +13,7 @@ public class StaticData {
 	public static SkyTermActivity mSkyTermActivity = null;
 
 	public static boolean mTakePicture = true;
+	//TODO!
 	public static boolean mSendSMS = false;
 	public static boolean mTakingPicture = false;
 

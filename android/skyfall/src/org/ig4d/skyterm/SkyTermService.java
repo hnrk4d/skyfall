@@ -20,11 +20,14 @@ import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -82,6 +85,11 @@ public class SkyTermService extends Service {
 	private int mStartPressure = -1;
 	private boolean mFirstPressure=true;
 	private WakeLock mWakeLock;
+	//battery status
+	private int mBatteryScale = -1;
+    private int mBatteryLevel = -1;
+    private int mBatteryVoltage = -1;
+    private int mBatteryTemperature = -1;
 	
 	@Override
 	public IBinder onBind(Intent intent) {
@@ -117,7 +125,18 @@ public class SkyTermService extends Service {
 			mWakeLock = ((PowerManager)getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK | PowerManager.ON_AFTER_RELEASE, "SKYFALL");
 	        mWakeLock.acquire();
 
-			mCreated = true;
+	        BroadcastReceiver batteryReceiver = new BroadcastReceiver() {
+	            public void onReceive(Context context, Intent intent) {
+	            	mBatteryLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+	                mBatteryScale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+	                mBatteryTemperature = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1);
+	                mBatteryVoltage = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1);
+	            }
+	        };
+	        IntentFilter filter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+	        registerReceiver(batteryReceiver, filter);
+	        
+	        mCreated = true;
 			
 			if(StaticData.EMULATION) {
 				mEmulation.update(mStartTime);
@@ -431,8 +450,9 @@ public class SkyTermService extends Service {
 				String.format("lat=%.2f", mLatitude) + ", " +
 				String.format("lon=%.2f", mLongitude) + ", " +
 				String.format("bar=%d", mPressure) + ", " +
-				String.format("tem=%.1f", ((double)mTemperature)/10.0) + ", " +
-				String.format("alt=%.2f", mAltitude) + "] : " + text + "\n";
+				String.format("alt=%.2f", mAltitude) + ", " +
+				String.format("vol=%d", mBatteryLevel) + ", " +
+				String.format("tem=%.1f", ((double)mTemperature)/10.0) + "] : " + text + "\n";
 
 		if(mNumLogs >= NUM_LOG_STRING) {
 			mNumLogs=0;
@@ -655,6 +675,12 @@ public class SkyTermService extends Service {
 						logln(INFO+"security mode turned off");
 					}
 				}
+				//if battery level goes down under a critical level we move to the next mode
+				if(mBatteryLevel >= 0 && mBatteryLevel < 10) {
+					mode_changed=true;
+					new_mode=MODE_FREE_FALL;
+					logln(INFO+"battery level below 10% -> FREE FALL");
+				}
 				if(!mSecurityMode) {
 					//do we fall? balloon exploded?
 					if(mSummitAltitude - mAltitude > 250) {
@@ -664,7 +690,7 @@ public class SkyTermService extends Service {
 						logln(INFO+"altitude << summit altitude -> FREE FALL");
 					}
 					//TODO!
-					if(time - mStartTime > 14 * 60 * 60 * 1000) {
+					else if(time - mStartTime > 14 * 60 * 60 * 1000) {
 						//balloon is traveling for a long, long time, let's release the balloon
 						mode_changed=true;
 						new_mode=MODE_FREE_FALL;
@@ -676,21 +702,22 @@ public class SkyTermService extends Service {
 						new_mode=MODE_PARACHUTE;
 						logln(INFO+"air pressure close to ground pressure -> PARACHUTE (1)");
 					}
-					if(mode_changed) {
-						setMode(new_mode);
-						//remove handlers ...
-						mHandler.removeCallbacks(mSMSPosition);
-						mHandler.removeCallbacks(mTakePicture);
-						//.. and reschedule at a faster cycle
-						StaticData.mTakePicture = false; // video from now
-						if(StaticData.mTakingPicture) {
-							mHandler.postDelayed(mTakePicture, 2000); //should be longer than taking a photo
-						}
-						else {
-							mHandler.postDelayed(mTakePicture, 250); //start almost immediately
-						}
-						mHandler.postDelayed(mSMSPosition, 15 *1000); //much faster SMS updates
+				}
+
+				if(mode_changed) {
+					setMode(new_mode);
+					//remove handlers ...
+					mHandler.removeCallbacks(mSMSPosition);
+					mHandler.removeCallbacks(mTakePicture);
+					//.. and reschedule at a faster cycle
+					StaticData.mTakePicture = false; // video from now
+					if(StaticData.mTakingPicture) {
+						mHandler.postDelayed(mTakePicture, 2000); //should be longer than taking a photo
 					}
+					else {
+						mHandler.postDelayed(mTakePicture, 250); //start almost immediately
+					}
+					mHandler.postDelayed(mSMSPosition, 15 *1000); //much faster SMS updates
 				}
 				} break;
 			case MODE_FREE_FALL :
@@ -702,6 +729,12 @@ public class SkyTermService extends Service {
 					new_mode=MODE_PARACHUTE;
 					logln(INFO+"air pressure close to ground pressure -> PARACHUTE (2)");
 				}
+				else if(mBatteryLevel >= 0 && mBatteryLevel < 7) {
+					mode_changed=true;
+					new_mode=MODE_FREE_FALL;
+					logln(INFO+"battery level below 7% -> PARACHUTE");
+				}
+
 				if(mode_changed) {
 					StaticData.mTakePicture = true; // back to picture mode for the next shot
 					setMode(new_mode);
