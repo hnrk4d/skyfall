@@ -11,6 +11,8 @@ import android.hardware.Camera;
 public class StaticData {
 	public static SkyTermService mSkyTermService = null;
 	public static SkyTermActivity mSkyTermActivity = null;
+	public static PictureActivity mPictureActivity = null;
+	public static VideoActivity mVideoActivity = null;
 
 	public static boolean mTakePicture = true;
 	//TODO!

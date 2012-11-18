@@ -139,7 +139,7 @@ public class SkyTermActivity extends Activity {
     private OnClickListener unlockParachuteOnClickListener = new OnClickListener() {
         public void onClick(View v) {
         	if(StaticData.mSkyTermService != null) {
-        		StaticData.mSkyTermService.setMode(SkyTermService.MODE_PARACHUTE);
+        		StaticData.mSkyTermService.setMode(SkyTermService.MODE_PARACHUTE_1);
         	}
         }
     };

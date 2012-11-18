@@ -42,8 +42,11 @@ int sCmdPos=0;
 #define MODE_NONE 0
 #define MODE_CLIMBING 1
 #define MODE_FREE_FALL 2
-#define MODE_PARACHUTE 3
-#define MAX_MODE 3
+#define MODE_PARACHUTE_1 3
+#define MODE_PARACHUTE_2 4
+#define MODE_PARACHUTE_3 5
+#define MODE_DONE 6
+#define MAX_MODE 6
 
 int sPrevMode=MODE_NONE;
 int sMode=MODE_NONE;
@@ -79,14 +82,17 @@ void setup() {
 void loop() {
   unsigned long msec=millis();
 
-	updateBMP085();
+	updateBMP085(msec);
 	readBTCmd();
   sLed.update(msec);
 
-  delay(50);
+  delay(200);
 }
 
-void updateBMP085() {
+long sParachuteReleaseTime=-1;
+int sParachuteNumAttempts=5;
+
+void updateBMP085(long time) {
   sDps.getPressure(&sPressure);
   sDps.getTemperature(&sTemperature);
 
@@ -103,15 +109,17 @@ void updateBMP085() {
 	}
 	if(!sSecurityMode) {
 		//in exceptional situations, possibly without communication to the host computer we open the parachute autonomously
-		if(sStartPressure - sPressure < 10000) {
+		if(sStartPressure - sPressure < 10000 && (sParachuteReleaseTime=-1 || time-sParachuteReleaseTime>5000) && sParachuteNumAttempts>0) {
 			//we are approaching the ground
 			//open parachute
 			open_parachute();
-			sLed.setMode(LedOut::EFaster);
+			sLed.setMode(LedOut::ESlow);
+			sParachuteReleaseTime=time;
+			sParachuteNumAttempts--;
 
 			sBluetooth.print(LOG);
-			sBluetooth.print('m');
-			sBluetooth.println(MODE_PARACHUTE);
+			sBluetooth.print("EMER EX #");
+			sBluetooth.println(sParachuteNumAttempts);
 		}
 	}
 }
@@ -196,13 +204,15 @@ void changeMode(int aPrevMode, int aCurMode) {
 		release_balloon();
 		sLed.setMode(LedOut::EFast);
 	}
-	else if(aCurMode == MODE_PARACHUTE) {
+	else if(aCurMode == MODE_PARACHUTE_1 ||
+					aCurMode == MODE_PARACHUTE_2 ||
+					aCurMode == MODE_PARACHUTE_3) {
 		//open parachute
 		open_parachute();
-		sLed.setMode(LedOut::EFaster);
-	}
-	else if(aCurMode == MODE_NONE) {
 		sLed.setMode(LedOut::ESlow);
+	}
+	else {
+		sLed.setMode(LedOut::ESlower);
 	}	
 
 	sBluetooth.print(LOG);

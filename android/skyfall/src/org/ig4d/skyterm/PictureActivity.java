@@ -52,6 +52,13 @@ public class PictureActivity extends Activity implements Camera.AutoFocusCallbac
 	    	
 	    logln(TAG + "Picture activity created.");
 		StaticData.mTakingPicture=true; //picture activity is running
+		StaticData.mPictureActivity=this;
+	}
+
+	@Override
+	public void onDestroy() {
+		StaticData.mPictureActivity=null;
+		super.onDestroy();		
 	}
 
 	@Override
@@ -61,14 +68,7 @@ public class PictureActivity extends Activity implements Camera.AutoFocusCallbac
 
 	@Override
 	public void onPause() {
-		if(mCamera!=null) {
-			if (mInPreview) {
-				mCamera.stopPreview();
-				mInPreview = false;
-			}
-			mCamera.release();
-			mCamera = null;
-		}
+		cleanup();
 
 		super.onPause();
 	}
@@ -198,12 +198,13 @@ public class PictureActivity extends Activity implements Camera.AutoFocusCallbac
 		public void onPictureTaken(byte[] data, Camera camera) {
 			saveImg(data);
 
+			cleanup();
+
 			// back to main view
 			Intent intend = new Intent(PictureActivity.this, SkyTermActivity.class);
 			intend.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 			startActivity(intend);
 
-			StaticData.mTakingPicture=false; //done with taking a picture
 			PictureActivity.this.finish();
 		}
 	};
@@ -233,6 +234,18 @@ public class PictureActivity extends Activity implements Camera.AutoFocusCallbac
 		}
 	}
 
+	protected void cleanup() {
+		StaticData.mTakingPicture=false; //done with taking a picture		
+		if(mCamera!=null) {
+			if (mInPreview) {
+				mCamera.stopPreview();
+				mInPreview = false;
+			}
+			mCamera.release();
+			mCamera = null;
+		}
+	}
+	
 	private void logln(String str) {
 		if(StaticData.mSkyTermService != null) {
 			StaticData.mSkyTermService.logln(str);

@@ -34,7 +34,7 @@ public class VideoActivity extends Activity implements Callback, MediaRecorder.O
 
 	private MediaRecorder mMediaRecorder;
 	//TODO!
-	private static int VIDEO_LENGTH = 2 * 60 *1000;
+	private static int VIDEO_LENGTH = 30 * 60 *1000;
 	private String mVideoFileName=new String("unnamed");
 	private boolean mIsRecording=false;
 
@@ -60,7 +60,15 @@ public class VideoActivity extends Activity implements Callback, MediaRecorder.O
 		mPreviewHolder = mPreview.getHolder();
 		mPreviewHolder.addCallback(this);
 
+		StaticData.mVideoActivity = this;
+
 		logln(TAG + "Video activity created.");
+	}
+
+	@Override
+	public void onDestroy() {
+		StaticData.mVideoActivity = null;
+		super.onDestroy();
 	}
 
 	@Override

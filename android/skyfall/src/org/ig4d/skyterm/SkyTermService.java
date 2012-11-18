@@ -330,7 +330,7 @@ public class SkyTermService extends Service {
 						mStopWorker = true;
 					}
 					try {
-						Thread.sleep(10);
+						Thread.sleep(100);
 					} catch (Throwable e) {
 					}
 				}
@@ -536,23 +536,29 @@ public class SkyTermService extends Service {
 		}
 	}
 
-    private int mPictureCounter = 0;
+//  private int mPictureCounter = 0;
 	private Runnable mTakePicture = new Runnable() {
 		public void run() {
 			//TODO!
-			mPictureCounter = (mPictureCounter+1)%7;
-			if(mPictureCounter == 0) {
-				StaticData.mTakePicture=false;
-			}
-			else {
-				StaticData.mTakePicture=true;
-			}
+//			mPictureCounter = (mPictureCounter+1)%7;
+//			if(mPictureCounter == 0) {
+//				StaticData.mTakePicture=false;
+//			}
+//			else {
+//				StaticData.mTakePicture=true;
+//			}
 
 			Intent intent;
 			if(StaticData.mTakePicture) {
+				if(StaticData.mPictureActivity != null) {
+					StaticData.mPictureActivity.finish();
+				}
 				intent = new Intent(getBaseContext(), PictureActivity.class);
 			}
 			else {
+				if(StaticData.mVideoActivity != null) {
+					StaticData.mVideoActivity.finish();
+				}
 				intent = new Intent(getBaseContext(), VideoActivity.class);
 			}
 			intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -626,8 +632,11 @@ public class SkyTermService extends Service {
 	public final static int MODE_NONE = 0;
 	public final static int MODE_CLIMBING = 1;
 	public final static int MODE_FREE_FALL = 2;
-	public final static int MODE_PARACHUTE = 3;
-	public final static int MAX_MODE = 3;
+	public final static int MODE_PARACHUTE_1 = 3;
+	public final static int MODE_PARACHUTE_2 = 4;
+	public final static int MODE_PARACHUTE_3 = 5;
+	public final static int MODE_DONE = 6;
+	public final static int MAX_MODE = 6;
 	private int mMode = MODE_CLIMBING;
 
 	private double mSummitAltitude = 0.0; //ever achieved summit height
@@ -676,10 +685,10 @@ public class SkyTermService extends Service {
 					}
 				}
 				//if battery level goes down under a critical level we move to the next mode
-				if(mBatteryLevel >= 0 && mBatteryLevel < 10) {
+				if(mBatteryLevel >= 0 && mBatteryLevel < 12) {
 					mode_changed=true;
 					new_mode=MODE_FREE_FALL;
-					logln(INFO+"battery level below 10% -> FREE FALL");
+					logln(INFO+"battery level below 12% -> FREE FALL");
 				}
 				if(!mSecurityMode) {
 					//do we fall? balloon exploded?
@@ -690,7 +699,7 @@ public class SkyTermService extends Service {
 						logln(INFO+"altitude << summit altitude -> FREE FALL");
 					}
 					//TODO!
-					else if(time - mStartTime > 14 * 60 * 60 * 1000) {
+					else if(time - mStartTime > 16 * 60 * 60 * 1000) {
 						//balloon is traveling for a long, long time, let's release the balloon
 						mode_changed=true;
 						new_mode=MODE_FREE_FALL;
@@ -699,7 +708,7 @@ public class SkyTermService extends Service {
 					if(mStartPressure - mPressure < 15000) {
 						//we are approaching the ground -> open parachute
 						mode_changed=true;
-						new_mode=MODE_PARACHUTE;
+						new_mode=MODE_PARACHUTE_1;
 						logln(INFO+"air pressure close to ground pressure -> PARACHUTE (1)");
 					}
 				}
@@ -726,13 +735,14 @@ public class SkyTermService extends Service {
 				int new_mode=MODE_FREE_FALL;
 				if(mStartPressure - mPressure < 10000) {
 					//we are approaching the ground -> open parachute
-					new_mode=MODE_PARACHUTE;
+					mode_changed=true;
+					new_mode=MODE_PARACHUTE_1;
 					logln(INFO+"air pressure close to ground pressure -> PARACHUTE (2)");
 				}
-				else if(mBatteryLevel >= 0 && mBatteryLevel < 7) {
+				else if(mBatteryLevel >= 0 && mBatteryLevel < 8) {
 					mode_changed=true;
-					new_mode=MODE_FREE_FALL;
-					logln(INFO+"battery level below 7% -> PARACHUTE");
+					new_mode=MODE_PARACHUTE_1;
+					logln(INFO+"battery level below 8% -> PARACHUTE");
 				}
 
 				if(mode_changed) {
@@ -740,7 +750,70 @@ public class SkyTermService extends Service {
 					setMode(new_mode);
 				}
 			} break;
-			case MODE_PARACHUTE :
+			case MODE_PARACHUTE_1 :
+			{
+				boolean mode_changed=false;
+				int new_mode=MODE_PARACHUTE_1;
+				if(mStartPressure - mPressure < 8000) {
+					//we are approaching the ground -> open parachute
+					mode_changed=true;
+					new_mode=MODE_PARACHUTE_2;
+					logln(INFO+"air pressure close to ground pressure -> PARACHUTE (3)");
+				}
+				else if(mBatteryLevel >= 0 && mBatteryLevel < 6) {
+					mode_changed=true;
+					new_mode=MODE_PARACHUTE_2;
+					logln(INFO+"battery level below 6% -> PARACHUTE");
+				}
+
+				if(mode_changed) {
+					StaticData.mTakePicture = true; // back to picture mode for the next shot
+					setMode(new_mode);
+				}
+			} break;
+			case MODE_PARACHUTE_2 :
+			{
+				boolean mode_changed=false;
+				int new_mode=MODE_PARACHUTE_2;
+				if(mStartPressure - mPressure < 6000) {
+					//we are approaching the ground -> open parachute
+					mode_changed=true;
+					new_mode=MODE_PARACHUTE_3;
+					logln(INFO+"air pressure close to ground pressure -> PARACHUTE (4)");
+				}
+				else if(mBatteryLevel >= 0 && mBatteryLevel < 4) {
+					mode_changed=true;
+					new_mode=MODE_PARACHUTE_3;
+					logln(INFO+"battery level below 4% -> PARACHUTE");
+				}
+
+				if(mode_changed) {
+					StaticData.mTakePicture = true; // back to picture mode for the next shot
+					setMode(new_mode);
+				}
+			} break;
+			case MODE_PARACHUTE_3 :
+			{
+				boolean mode_changed=false;
+				int new_mode=MODE_PARACHUTE_3;
+				if(mStartPressure - mPressure < 10000) {
+					//we are approaching the ground -> open parachute
+					mode_changed=true;
+					new_mode=MODE_DONE;
+					logln(INFO+"air pressure close to ground pressure -> PARACHUTE (5)");
+				}
+				else if(mBatteryLevel >= 0 && mBatteryLevel < 2) {
+					mode_changed=true;
+					new_mode=MODE_DONE;
+					logln(INFO+"battery level below 2% -> PARACHUTE");
+				}
+
+				if(mode_changed) {
+					StaticData.mTakePicture = true; // back to picture mode for the next shot
+					setMode(new_mode);
+				}
+			} break;
+			case MODE_DONE :
 			{
 				//nothing specific to do
 			} break;
@@ -750,21 +823,37 @@ public class SkyTermService extends Service {
 	};
 	
 	class Emulator {
-		private final double CLIMB_TIME = 12*60*60*1000;
+		private final double CLIMB_TIME = 8*60*60*1000;
+		private final double FALL_TIME = 5*60*1000;
 		private final double LONGITUDE = 116.39043, LATITUDE = 39.922902;
 		private final double START_ALTITUDE = 52.0, SUMMIT_ALTITUDE = 39000.0;
 		private final double START_PRESSURE = 101000, SUMMIT_PRESSURE = 0;
 		private final double START_TEMPERATURE = 225, SUMMIT_TEMPERATURE = -60;
 		public void update(long time) {
 			double dt=time - mStartTime;
-			if(dt<0.0) dt=0;
-			double frac=dt/CLIMB_TIME;
-			if(frac > 1.0) frac=1.0;
-			mLongitude=LONGITUDE;
-			mLatitude=LATITUDE;
-			mAltitude = START_ALTITUDE + frac*(SUMMIT_ALTITUDE - START_ALTITUDE);
-			mPressure = (int)(START_PRESSURE + frac*(SUMMIT_PRESSURE - START_PRESSURE));
-			mTemperature = (int)(START_TEMPERATURE + frac*(SUMMIT_TEMPERATURE - START_TEMPERATURE));			
+			if(dt<=CLIMB_TIME) {
+				//climbing simulation
+				if(dt<0.0) dt=0;
+				double frac=dt/CLIMB_TIME;
+				if(frac > 1.0) frac=1.0;
+				mLongitude=LONGITUDE;
+				mLatitude=LATITUDE;
+				mAltitude = START_ALTITUDE + frac*(SUMMIT_ALTITUDE - START_ALTITUDE);
+				mPressure = (int)(START_PRESSURE + frac*(SUMMIT_PRESSURE - START_PRESSURE));
+				mTemperature = (int)(START_TEMPERATURE + frac*(SUMMIT_TEMPERATURE - START_TEMPERATURE));			
+			}
+			else {
+				//fall simulation
+				double t=dt-CLIMB_TIME;
+				if(t<0.0) t=0;
+				double frac=t/FALL_TIME;
+				if(frac > 1.0) frac=1.0;
+				mLongitude=LONGITUDE;
+				mLatitude=LATITUDE;
+				mAltitude = START_ALTITUDE + (1.0-frac)*(SUMMIT_ALTITUDE - START_ALTITUDE);
+				mPressure = (int)(START_PRESSURE + (1.0-frac)*(SUMMIT_PRESSURE - START_PRESSURE));
+				mTemperature = (int)(START_TEMPERATURE + (1.0-frac)*(SUMMIT_TEMPERATURE - START_TEMPERATURE));			
+			}
 		}
 	};
 	
