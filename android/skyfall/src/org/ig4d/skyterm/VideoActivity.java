@@ -34,7 +34,7 @@ public class VideoActivity extends Activity implements Callback, MediaRecorder.O
 
 	private MediaRecorder mMediaRecorder;
 	//TODO!
-	private static int VIDEO_LENGTH = 30 * 60 *1000;
+	private static int VIDEO_LENGTH = 25 * 60 *1000;
 	private String mVideoFileName=new String("unnamed");
 	private boolean mIsRecording=false;
 

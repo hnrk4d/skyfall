@@ -56,8 +56,8 @@ public class SkyTermService extends Service {
 	Time mTime = new Time(Time.getCurrentTimezone());
 	private static final int CLOSE_TIMEOUT = 1000;
 	//TODO!
-	private static final int PICTURE_CLIMBING_DELAY = 10*60*1000;
-	private static final int SMS_CLIMBING_DELAY = 5*60*1000;
+	private static final int PICTURE_CLIMBING_DELAY = 5*60*1000;
+	private static final int SMS_CLIMBING_DELAY = 6*60*1000;
 	private static final String mSMSNumber = "+4915155155707";
     private static final int STATUS_DELAY = 2*60*1000;
     private static final int UPDATE_DELAY = 500;
@@ -86,10 +86,10 @@ public class SkyTermService extends Service {
 	private boolean mFirstPressure=true;
 	private WakeLock mWakeLock;
 	//battery status
-	private int mBatteryScale = -1;
+	//private int mBatteryScale = -1;
     private int mBatteryLevel = -1;
-    private int mBatteryVoltage = -1;
-    private int mBatteryTemperature = -1;
+    //private int mBatteryVoltage = -1;
+    //private int mBatteryTemperature = -1;
 	
 	@Override
 	public IBinder onBind(Intent intent) {
@@ -128,9 +128,9 @@ public class SkyTermService extends Service {
 	        BroadcastReceiver batteryReceiver = new BroadcastReceiver() {
 	            public void onReceive(Context context, Intent intent) {
 	            	mBatteryLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
-	                mBatteryScale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
-	                mBatteryTemperature = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1);
-	                mBatteryVoltage = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1);
+	                //mBatteryScale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+	                //mBatteryTemperature = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1);
+	                //mBatteryVoltage = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1);
 	            }
 	        };
 	        IntentFilter filter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
@@ -548,21 +548,34 @@ public class SkyTermService extends Service {
 //				StaticData.mTakePicture=true;
 //			}
 
-			Intent intent;
+			Intent intent=null;
 			if(StaticData.mTakePicture) {
 				if(StaticData.mPictureActivity != null) {
+					logln(INFO + "picture activity is still running -> killed (1)");
 					StaticData.mPictureActivity.finish();
 				}
-				intent = new Intent(getBaseContext(), PictureActivity.class);
+				if(StaticData.mVideoActivity != null) {
+					logln(INFO + "video activity still running -> we wait");
+				}
+				else {
+					intent = new Intent(getBaseContext(), PictureActivity.class);
+				}
 			}
 			else {
+				if(StaticData.mPictureActivity != null) {
+					logln(INFO + "picture activity is still running -> killed (2)");
+					StaticData.mPictureActivity.finish();
+				}
 				if(StaticData.mVideoActivity != null) {
+					logln(INFO + "video activity is still running -> killed (2)");
 					StaticData.mVideoActivity.finish();
 				}
 				intent = new Intent(getBaseContext(), VideoActivity.class);
 			}
-			intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-			startActivity(intent);
+			if(intent != null) {
+				intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+				startActivity(intent);
+			}
 			if(getMode() == MODE_CLIMBING) {
 				mHandler.postDelayed(mTakePicture, PICTURE_CLIMBING_DELAY);
 			}
@@ -685,10 +698,10 @@ public class SkyTermService extends Service {
 					}
 				}
 				//if battery level goes down under a critical level we move to the next mode
-				if(mBatteryLevel >= 0 && mBatteryLevel < 12) {
+				if(mBatteryLevel >= 0 && mBatteryLevel < 15) {
 					mode_changed=true;
 					new_mode=MODE_FREE_FALL;
-					logln(INFO+"battery level below 12% -> FREE FALL");
+					logln(INFO+"battery level below 15% -> FREE FALL");
 				}
 				if(!mSecurityMode) {
 					//do we fall? balloon exploded?
@@ -796,7 +809,7 @@ public class SkyTermService extends Service {
 			{
 				boolean mode_changed=false;
 				int new_mode=MODE_PARACHUTE_3;
-				if(mStartPressure - mPressure < 10000) {
+				if(mStartPressure - mPressure < 4000) {
 					//we are approaching the ground -> open parachute
 					mode_changed=true;
 					new_mode=MODE_DONE;
@@ -823,7 +836,7 @@ public class SkyTermService extends Service {
 	};
 	
 	class Emulator {
-		private final double CLIMB_TIME = 8*60*60*1000;
+		private final double CLIMB_TIME = 6*60*60*1000;
 		private final double FALL_TIME = 5*60*1000;
 		private final double LONGITUDE = 116.39043, LATITUDE = 39.922902;
 		private final double START_ALTITUDE = 52.0, SUMMIT_ALTITUDE = 39000.0;
