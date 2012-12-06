@@ -131,7 +131,7 @@ public class SkyTermActivity extends Activity {
     private OnClickListener balloonOnClickListener = new OnClickListener() {
         public void onClick(View v) {
         	if(StaticData.mSkyTermService != null) {
-        		StaticData.mSkyTermService.setMode(SkyTermService.MODE_FREE_FALL);
+        		StaticData.mSkyTermService.setMode(SkyTermService.MODE_TEST_BALLOON);
         	}
         }
     };
@@ -139,7 +139,7 @@ public class SkyTermActivity extends Activity {
     private OnClickListener unlockParachuteOnClickListener = new OnClickListener() {
         public void onClick(View v) {
         	if(StaticData.mSkyTermService != null) {
-        		StaticData.mSkyTermService.setMode(SkyTermService.MODE_PARACHUTE_1);
+        		StaticData.mSkyTermService.setMode(SkyTermService.MODE_TEST_PARACHUTE);
         	}
         }
     };

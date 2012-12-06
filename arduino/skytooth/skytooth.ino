@@ -24,6 +24,7 @@ bool sSecurityMode=true;
 #define PWMA 5
 #define BIN1 7
 #define PWMB 6
+#define STBY 12
 
 //Bluetooth module
 #define TX 2
@@ -46,7 +47,9 @@ int sCmdPos=0;
 #define MODE_PARACHUTE_2 4
 #define MODE_PARACHUTE_3 5
 #define MODE_DONE 6
-#define MAX_MODE 6
+#define MODE_TEST_BALLOON 7
+#define MODE_TEST_PARACHUTE 8
+#define MAX_MODE 8
 
 int sPrevMode=MODE_NONE;
 int sMode=MODE_NONE;
@@ -75,6 +78,8 @@ void setup() {
   sDps.init();
   sBluetooth.begin(115200);
 	sLed.setMode(LedOut::EMiddle);
+
+	digitalWrite(STBY, LOW);
 
 	restartParser();
 }
@@ -199,16 +204,20 @@ void changeMode(int aPrevMode, int aCurMode) {
 	if(aCurMode == MODE_CLIMBING) {
 		sLed.setMode(LedOut::EMiddle);
 	}
-	else if(aCurMode == MODE_FREE_FALL) {
+	else if(aCurMode == MODE_FREE_FALL ||
+					aCurMode == MODE_TEST_BALLOON) {
 		// release balloon
 		release_balloon();
 		sLed.setMode(LedOut::EFast);
 	}
 	else if(aCurMode == MODE_PARACHUTE_1 ||
 					aCurMode == MODE_PARACHUTE_2 ||
-					aCurMode == MODE_PARACHUTE_3) {
+					aCurMode == MODE_PARACHUTE_3 ||
+					aCurMode == MODE_TEST_PARACHUTE) {
 		//open parachute
 		open_parachute();
+		//release balloon if not yet done
+		release_balloon();
 		sLed.setMode(LedOut::ESlow);
 	}
 	else {
@@ -221,19 +230,23 @@ void changeMode(int aPrevMode, int aCurMode) {
 }
 
 void release_balloon() {
+	digitalWrite(STBY, HIGH);
 	digitalWrite(BIN1, HIGH);
 	analogWrite(PWMB, 255);
 	delay(200);
 	digitalWrite(BIN1, LOW);
 	analogWrite(PWMB, 0);
+	digitalWrite(STBY, LOW);
 }
 
 void open_parachute() {
+	digitalWrite(STBY, HIGH);
 	digitalWrite(AIN1, HIGH);
 	analogWrite(PWMA, 255);
 	delay(200);
 	digitalWrite(AIN1, LOW);
 	analogWrite(PWMA, 0);
+	digitalWrite(STBY, LOW);
 }
 
 void ackMode() {

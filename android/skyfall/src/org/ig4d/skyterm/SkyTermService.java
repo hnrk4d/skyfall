@@ -649,7 +649,9 @@ public class SkyTermService extends Service {
 	public final static int MODE_PARACHUTE_2 = 4;
 	public final static int MODE_PARACHUTE_3 = 5;
 	public final static int MODE_DONE = 6;
-	public final static int MAX_MODE = 6;
+	public final static int MODE_TEST_BALLOON = 7;
+	public final static int MODE_TEST_PARACHUTE = 8;
+	public final static int MAX_MODE = 8;
 	private int mMode = MODE_CLIMBING;
 
 	private double mSummitAltitude = 0.0; //ever achieved summit height
@@ -827,6 +829,11 @@ public class SkyTermService extends Service {
 				}
 			} break;
 			case MODE_DONE :
+			{
+				//nothing specific to do
+			} break;
+			case MODE_TEST_BALLOON :
+			case MODE_TEST_PARACHUTE :
 			{
 				//nothing specific to do
 			} break;
