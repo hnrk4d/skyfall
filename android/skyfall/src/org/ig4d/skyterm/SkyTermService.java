@@ -82,6 +82,7 @@ public class SkyTermService extends Service {
 	private Location mLocation = new Location(LocationManager.GPS_PROVIDER);
 	private double mLongitude=-1.0, mLatitude=-1.0, mAltitude=-1.0;
 	private int mPressure = -1, mTemperature = -1;
+	private boolean mFreefallDetected=false;
 	private int mStartPressure = -1;
 	private boolean mFirstPressure=true;
 	private WakeLock mWakeLock;
@@ -369,6 +370,11 @@ public class SkyTermService extends Service {
 					}
 				} catch(Throwable e) {}
 			}
+			if(parts.length >= 5) {
+				try {
+					mFreefallDetected=(Integer.parseInt(parts[4])!=0)?true:false;
+				} catch(Throwable e) {}
+			}
 		}
 		long time=System.currentTimeMillis();
 		if(time - mLastLogTime > STATUS_DELAY) {
@@ -452,7 +458,8 @@ public class SkyTermService extends Service {
 				String.format("bar=%d", mPressure) + ", " +
 				String.format("alt=%.2f", mAltitude) + ", " +
 				String.format("vol=%d", mBatteryLevel) + ", " +
-				String.format("tem=%.1f", ((double)mTemperature)/10.0) + "] : " + text + "\n";
+				String.format("tem=%.1f", ((double)mTemperature)/10.0) + ", " +
+				String.format("fre=%d", mFreefallDetected?1:0) + "] : " + text + "\n";
 
 		if(mNumLogs >= NUM_LOG_STRING) {
 			mNumLogs=0;
@@ -580,7 +587,7 @@ public class SkyTermService extends Service {
 				mHandler.postDelayed(mTakePicture, PICTURE_CLIMBING_DELAY);
 			}
 			else {
-				mHandler.postDelayed(mTakePicture, 60 * 60 * 1000);
+				mHandler.postDelayed(mTakePicture, 10 * 60 * 1000);
 			}
 		}
 	};
@@ -713,8 +720,14 @@ public class SkyTermService extends Service {
 						new_mode=MODE_FREE_FALL;
 						logln(INFO+"altitude << summit altitude -> FREE FALL");
 					}
+					if(mFreefallDetected) {
+						//ADXL345 detected a free fall
+						mode_changed=true;
+						new_mode=MODE_FREE_FALL;
+						logln(INFO+"ADXL345 freefall detected -> FREE FALL");
+					}
 					//TODO!
-					else if(time - mStartTime > 16 * 60 * 60 * 1000) {
+					else if(time - mStartTime > 6 * 60 * 60 * 1000) {
 						//balloon is traveling for a long, long time, let's release the balloon
 						mode_changed=true;
 						new_mode=MODE_FREE_FALL;
@@ -843,7 +856,7 @@ public class SkyTermService extends Service {
 	};
 	
 	class Emulator {
-		private final double CLIMB_TIME = 6*60*60*1000;
+		private final double CLIMB_TIME = 2*60*60*1000;
 		private final double FALL_TIME = 5*60*1000;
 		private final double LONGITUDE = 116.39043, LATITUDE = 39.922902;
 		private final double START_ALTITUDE = 52.0, SUMMIT_ALTITUDE = 39000.0;

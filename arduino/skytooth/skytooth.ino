@@ -10,6 +10,7 @@ Author(s): Henrik Battke
 #include <Wire.h>
 #include <BMP085.h>
 #include <ledout.h>
+#include "ADXL345.h"
 
 #define LOG_SERIAL(X)
 
@@ -18,6 +19,7 @@ BMP085 sDps = BMP085();      // Digital Pressure Sensor
 long sTemperature=0, sPressure=0, sStartPressure=0;
 bool sFirstPressure=true;
 bool sSecurityMode=true;
+bool sFreefallDetected=false;
 
 //Motor control - TB6612FNG
 #define AIN1 4
@@ -38,6 +40,9 @@ LedOut sLed(LED);
 #define CMDSIZE 20
 char sCmd[CMDSIZE+1];
 int sCmdPos=0;
+
+//ADXL free fall detection
+ADXL345 adxl;
 
 //Modes
 #define MODE_NONE 0
@@ -79,6 +84,13 @@ void setup() {
   sBluetooth.begin(115200);
 	sLed.setMode(LedOut::EMiddle);
 
+  adxl.powerOn();
+	//set values for what is considered freefall (0-255)
+	adxl.setFreeFallThreshold(2); //7 - (5 - 9) recommended - 62.5mg per increment
+	adxl.setFreeFallDuration(1); //45 - (20 - 70) recommended - 5ms per increment
+  adxl.setInterruptMapping(ADXL345_INT_FREE_FALL_BIT, ADXL345_INT1_PIN);
+  adxl.setInterrupt(ADXL345_INT_FREE_FALL_BIT,  1);
+
 	digitalWrite(STBY, LOW);
 
 	restartParser();
@@ -88,6 +100,7 @@ void loop() {
   unsigned long msec=millis();
 
 	updateBMP085(msec);
+	updateADXL345();
 	readBTCmd();
   sLed.update(msec);
 
@@ -96,6 +109,24 @@ void loop() {
 
 long sParachuteReleaseTime=-1;
 int sParachuteNumAttempts=5;
+
+void updateADXL345() {
+	byte interrupts = adxl.getInterruptSource();
+ 
+	//freefall
+	if(adxl.triggered(interrupts, ADXL345_FREE_FALL)){
+		//add code here to do when freefall is sensed
+		if(!sSecurityMode) {
+			sFreefallDetected=true;
+			sBluetooth.print(LOG);
+			sBluetooth.println("FREEF");
+		}
+		else {
+			sBluetooth.print(LOG);
+			sBluetooth.println("freef ins sec");
+		}
+	}
+}
 
 void updateBMP085(long time) {
   sDps.getPressure(&sPressure);
@@ -257,5 +288,7 @@ void ackMode() {
 	sBluetooth.print(SEP);
 	sBluetooth.print(sTemperature);
 	sBluetooth.print(SEP);
-	sBluetooth.println(sPressure);
+	sBluetooth.print(sPressure);
+	sBluetooth.print(SEP);
+	sBluetooth.println(sFreefallDetected?'1':'0');
 }
