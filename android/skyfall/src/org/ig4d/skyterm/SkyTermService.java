@@ -57,7 +57,8 @@ public class SkyTermService extends Service {
 	private static final int CLOSE_TIMEOUT = 1000;
 	//TODO!
 	private static final int PICTURE_CLIMBING_DELAY = 5*60*1000;
-	private static final int SMS_CLIMBING_DELAY = 6*60*1000;
+	private static final int SMS_CLIMBING_DELAY = 10*60*1000; //TODO: 10 min
+	private static final int SMS_FAST_UPDATE_DELAY = 20*1000; //TODO: 30 sec
 	private static final String mSMSNumber = "+4915155155707";
     private static final int STATUS_DELAY = 2*60*1000;
     private static final int UPDATE_DELAY = 500;
@@ -65,7 +66,7 @@ public class SkyTermService extends Service {
 	private static final String ERR = "ERR: ";
 	private static final String INFO = "INFO: ";
 	private static final String STATUS = "STAT";
-	private static final String DEVICE = "japanboxz";
+	private static final String DEVICE = "IG4DBT";
 	private static enum State {
 		STATE_START_UP, STATE_CONNECT, STATE_COMMUNICATE, STATE_CLOSE
 	};
@@ -262,9 +263,6 @@ public class SkyTermService extends Service {
 			mSocket.connect();
 			mOutputStream = mSocket.getOutputStream();
 			mInputStream = mSocket.getInputStream();
-
-			beginListenForData();
-
 			logln(INFO + "Bluetooth opened");
 			return true;
 		} else {
@@ -503,8 +501,14 @@ public class SkyTermService extends Service {
 		dir.mkdirs();
 		File ofile = new File(dir, "skyterm_log.txt");
 		if (ofile.exists()) {
-			File nfile = new File(dir, "skyterm_log_old.txt");
-			ofile.renameTo(nfile);
+			int i;
+			for(i=0; i<1000; ++i) {
+				File nfile = new File(dir, "skyterm_log."+i+".txt");
+				if(!nfile.exists()) {
+					ofile.renameTo(nfile);
+					break;
+				}
+			}
 		}
 		File file = new File(dir, "skyterm_log.txt");
 
@@ -597,13 +601,21 @@ public class SkyTermService extends Service {
 			if(StaticData.mSendSMS) {
 				String msg="SkyFall "
 						+ mTime.format("%k:%M:%S") + " [" +
-						String.format("%.2f", mLatitude) + ", " +
-						String.format("%.2f", mLongitude) + ", " +
-						String.format("%.2f", mAltitude) + "]";
+						String.format("lat=%.6f", mLatitude) + ", " +
+						String.format("lon=%.6f", mLongitude) + ", " +
+						String.format("bar=%d", mPressure) + ", " +
+						String.format("alt=%.4f", mAltitude) + ", " +
+						String.format("vol=%d", mBatteryLevel) + ", " +
+						String.format("tem=%.1f", ((double)mTemperature)/10.0) + "]";
 				sendSMS(mSMSNumber, msg);
 				logln(INFO+"send SMS: "+msg);
 			}
-			mHandler.postDelayed(mSMSPosition, SMS_CLIMBING_DELAY);
+			if(mMode == MODE_CLIMBING || mMode == MODE_DONE) {
+				mHandler.postDelayed(mSMSPosition, SMS_CLIMBING_DELAY);
+			}
+			else {
+				mHandler.postDelayed(mSMSPosition, SMS_FAST_UPDATE_DELAY);
+			}
 		}
 	};
 
@@ -616,8 +628,12 @@ public class SkyTermService extends Service {
     }
 	
 	private void sendSMS(String phoneNumber, String message) {
+		try {
 	       SmsManager sms = SmsManager.getDefault();
 	       sms.sendTextMessage(phoneNumber, null, message, null, null);
+			} catch (Exception e) {
+				logln(INFO+"SMS send failed");
+			}
 	    }
 	   
 	private synchronized void logTitle(String str) {
@@ -727,12 +743,12 @@ public class SkyTermService extends Service {
 						logln(INFO+"ADXL345 freefall detected -> FREE FALL");
 					}
 					//TODO!
-					else if(time - mStartTime > 6 * 60 * 60 * 1000) {
+					/*else if(time - mStartTime > 6 * 60 * 60 * 1000) {
 						//balloon is traveling for a long, long time, let's release the balloon
 						mode_changed=true;
 						new_mode=MODE_FREE_FALL;
 						logln(INFO+"travel time exceeded -> FREE FALL");
-					}
+					}*/
 					if(mStartPressure - mPressure < 15000) {
 						//we are approaching the ground -> open parachute
 						mode_changed=true;
@@ -856,8 +872,8 @@ public class SkyTermService extends Service {
 	};
 	
 	class Emulator {
-		private final double CLIMB_TIME = 2*60*60*1000;
-		private final double FALL_TIME = 5*60*1000;
+		private final double CLIMB_TIME = 4*60*60*1000;
+		private final double FALL_TIME = 30*60*1000;
 		private final double LONGITUDE = 116.39043, LATITUDE = 39.922902;
 		private final double START_ALTITUDE = 52.0, SUMMIT_ALTITUDE = 39000.0;
 		private final double START_PRESSURE = 101000, SUMMIT_PRESSURE = 0;

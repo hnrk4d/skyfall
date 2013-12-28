@@ -16,15 +16,15 @@ public class StaticData {
 
 	public static boolean mTakePicture = true;
 	//TODO!
-	public static boolean mSendSMS = false;
+	public static boolean mSendSMS = true;
 	public static boolean mTakingPicture = false;
 
-	public static String EXT_SD_CARD = "/sdcard/external_sd"; //Samsung specific
+	public static String EXT_SD_CARD = "/storage/extSdCard"; //Samsung specific
 	
 	final static String FOCUS=Camera.Parameters.FOCUS_MODE_INFINITY;
 	//final static String FOCUS=Camera.Parameters.FOCUS_MODE_MACRO;
 
-    final static boolean EMULATION = true;
+    final static boolean EMULATION = false;
 	
 	/** A safe way to get an instance of the Camera object. */
 	public static Camera getCameraInstance() {

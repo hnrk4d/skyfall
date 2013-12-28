@@ -12,7 +12,7 @@ Author(s): Henrik Battke
 #include <ledout.h>
 #include "ADXL345.h"
 
-#define LOG_SERIAL(X)
+#define LOG_SERIAL(X) X
 
 //BMP085 variables
 BMP085 sDps = BMP085();      // Digital Pressure Sensor 
@@ -86,8 +86,8 @@ void setup() {
 
   adxl.powerOn();
 	//set values for what is considered freefall (0-255)
-	adxl.setFreeFallThreshold(2); //7 - (5 - 9) recommended - 62.5mg per increment
-	adxl.setFreeFallDuration(1); //45 - (20 - 70) recommended - 5ms per increment
+	adxl.setFreeFallThreshold(7); //TODO: 7 - (5 - 9) recommended - 62.5mg per increment
+	adxl.setFreeFallDuration(200); //TODO: 45 - (20 - 70) recommended - 5ms per increment
   adxl.setInterruptMapping(ADXL345_INT_FREE_FALL_BIT, ADXL345_INT1_PIN);
   adxl.setInterrupt(ADXL345_INT_FREE_FALL_BIT,  1);
 
@@ -95,6 +95,8 @@ void setup() {
 
 	restartParser();
 }
+
+//bool s_test_para=false; //TODO
 
 void loop() {
   unsigned long msec=millis();
@@ -104,7 +106,20 @@ void loop() {
 	readBTCmd();
   sLed.update(msec);
 
-  delay(200);
+  //TODO: remove after test
+#if 0
+	if(!s_test_para) {
+		s_test_para=true;
+		delay(2000);
+		open_parachute();
+		sLed.setMode(LedOut::EFaster);
+		sBluetooth.print(LOG);
+		sBluetooth.println("PAR TES");
+		LOG_SERIAL(Serial.println("PAR TES"));
+	}
+#endif
+
+  delay(20); //TODO: -> higher value
 }
 
 long sParachuteReleaseTime=-1;
@@ -212,7 +227,6 @@ bool processBTCmd(char *cmd, int len) {
 
 		return false;
 	}
-
 	return false;
 }
 
@@ -274,7 +288,7 @@ void open_parachute() {
 	digitalWrite(STBY, HIGH);
 	digitalWrite(AIN1, HIGH);
 	analogWrite(PWMA, 255);
-	delay(200);
+	delay(5000); //TODO: 200
 	digitalWrite(AIN1, LOW);
 	analogWrite(PWMA, 0);
 	digitalWrite(STBY, LOW);
